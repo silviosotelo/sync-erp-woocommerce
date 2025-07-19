@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Sincronizador ERP - WooCommerce</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #48bb78;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.error {
+            background: #f56565;
+        }
+
+        .status-indicator.warning {
+            background: #ed8936;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .metric {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .metric-value.success {
+            color: #48bb78;
+        }
+
+        .metric-value.error {
+            color: #f56565;
+        }
+
+        .metric-value.warning {
+            color: #ed8936;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.btn-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+
+        .btn.btn-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+
+        .btn.btn-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .logs-container {
+            height: 400px;
+            overflow-y: auto;
+            background: #1a202c;
+            border-radius: 12px;
+            padding: 20px;
+            font-family: 'Fira Code', monospace;
+            color: #e2e8f0;
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #2d3748;
+            font-size: 0.9rem;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #718096;
+            margin-right: 10px;
+        }
+
+        .log-level {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin-right: 10px;
+            font-size: 0.8rem;
+        }
+
+        .log-level.ERROR {
+            background: #f56565;
+            color: white;
+        }
+
+        .log-level.WARN {
+            background: #ed8936;
+            color: white;
+        }
+
+        .log-level.INFO {
+            background: #4299e1;
+            color: white;
+        }
+
+        .log-level.DEBUG {
+            background: #9f7aea;
+            color: white;
+        }
+
+        .products-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .products-table th,
+        .products-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .products-table th {
+            background: #f7fafc;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .products-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: white;
+            margin: 10% auto;
+            padding: 30px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1001;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #48bb78;
+        }
+
+        .notification.error {
+            background: #f56565;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔄 Dashboard Sincronizador</h1>
+            <p>Monitoreo en tiempo real del sincronizador ERP → WooCommerce</p>
+            <div style="margin-top: 20px;">
+                <button class="btn" onclick="manualSync()">🚀 Sincronizar Ahora</button>
+                <button class="btn btn-warning" onclick="showDeleteModal()">🗑️ Eliminar Producto</button>
+                <button class="btn btn-success" onclick="showRestoreModal()">♻️ Restaurar Producto</button>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid">
+            <!-- System Status -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estado del Sistema</h3>
+                    <div class="status-indicator" id="systemStatus"></div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Estado del Sync</span>
+                    <span class="metric-value" id="syncStatus">Verificando...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Base de Datos</span>
+                    <span class="metric-value" id="dbStatus">Verificando...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime</span>
+                    <span class="metric-value" id="uptime">Verificando...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Memoria</span>
+                    <span class="metric-value" id="memory">Verificando...</span>
+                </div>
+            </div>
+
+            <!-- Recent Stats -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estadísticas (24h)</h3>
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Productos Creados</span>
+                    <span class="metric-value success" id="productsCreated">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Productos Actualizados</span>
+                    <span class="metric-value" id="productsUpdated">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Productos Eliminados</span>
+                    <span class="metric-value warning" id="productsDeleted">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Errores</span>
+                    <span class="metric-value error" id="errors">0</span>
+                </div>
+            </div>
+
+            <!-- Performance -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Rendimiento</h3>
+                    <div class="status-indicator"></div>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total Sincronizaciones</span>
+                    <span class="metric-value" id="totalSyncs">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Duración Promedio</span>
+                    <span class="metric-value" id="avgDuration">0 min</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Última Sincronización</span>
+                    <span class="metric-value" id="lastSync">Nunca</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs Section -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Logs en Tiempo Real</h3>
+                <button class="btn" onclick="refreshLogs()">🔄 Actualizar</button>
+            </div>
+            <div class="logs-container" id="logsContainer">
+                <div class="log-entry">Cargando logs...</div>
+            </div>
+        </div>
+
+        <!-- Products Management -->
+        <div class="card" style="margin-top: 20px;">
+            <div class="card-header">
+                <h3 class="card-title">Productos Eliminados Recientemente</h3>
+                <button class="btn" onclick="refreshDeletedProducts()">🔄 Actualizar</button>
+            </div>
+            <div id="deletedProductsContainer">
+                <p>Cargando productos eliminados...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideDeleteModal()">&times;</span>
+            <h2>Eliminar Producto</h2>
+            <form onsubmit="deleteProduct(event)">
+                <div class="form-group">
+                    <label class="form-label">Código Interno del Producto:</label>
+                    <input type="text" class="form-input" id="deleteProductCode" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Razón de Eliminación:</label>
+                    <input type="text" class="form-input" id="deleteReason" placeholder="Opcional">
+                </div>
+                <button type="submit" class="btn btn-danger">🗑️ Eliminar Producto</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="restoreModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideRestoreModal()">&times;</span>
+            <h2>Restaurar Producto</h2>
+            <form onsubmit="restoreProduct(event)">
+                <div class="form-group">
+                    <label class="form-label">Código Interno del Producto:</label>
+                    <input type="text" class="form-input" id="restoreProductCode" required>
+                </div>
+                <button type="submit" class="btn btn-success">♻️ Restaurar Producto</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let refreshInterval;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadDashboard();
+            startAutoRefresh();
+        });
+
+        function startAutoRefresh() {
+            refreshInterval = setInterval(loadDashboard, 30000); // 30 seconds
+        }
+
+        async function loadDashboard() {
+            await Promise.all([
+                loadSystemStatus(),
+                loadStats(),
+                loadLogs(),
+                loadDeletedProducts()
+            ]);
+        }
+
+        async function loadSystemStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/system/status`);
+                const data = await response.json();
+                
+                document.getElementById('syncStatus').textContent = data.isRunning ? 'Ejecutándose' : 'Detenido';
+                document.getElementById('syncStatus').className = `metric-value ${data.isRunning ? 'success' : 'error'}`;
+                
+                document.getElementById('dbStatus').textContent = data.dbStatus === 'connected' ? 'Conectado' : 'Desconectado';
+                document.getElementById('dbStatus').className = `metric-value ${data.dbStatus === 'connected' ? 'success' : 'error'}`;
+                
+                const uptimeHours = Math.floor(data.systemInfo.uptime / 3600);
+                const uptimeMinutes = Math.floor((data.systemInfo.uptime % 3600) / 60);
+                document.getElementById('uptime').textContent = `${uptimeHours}h ${uptimeMinutes}m`;
+                
+                const memoryMB = Math.round(data.systemInfo.memoryUsage.used / 1024 / 1024);
+                document.getElementById('memory').textContent = `${memoryMB} MB`;
+                
+                const statusIndicator = document.getElementById('systemStatus');
+                statusIndicator.className = `status-indicator ${data.isRunning && data.dbStatus === 'connected' ? '' : 'error'}`;
+                
+            } catch (error) {
+                console.error('Error loading system status:', error);
+                showNotification('Error cargando estado del sistema', 'error');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+                
+                if (data.summary) {
+                    document.getElementById('productsCreated').textContent = data.summary.total_created || 0;
+                    document.getElementById('productsUpdated').textContent = data.summary.total_updated || 0;
+                    document.getElementById('productsDeleted').textContent = data.summary.total_deleted || 0;
+                    document.getElementById('errors').textContent = data.summary.total_errors || 0;
+                    document.getElementById('totalSyncs').textContent = data.summary.total_syncs || 0;
+                    
+                    const avgMin = Math.round((data.summary.avg_duration || 0) / 60000 * 100) / 100;
+                    document.getElementById('avgDuration').textContent = `${avgMin} min`;
+                }
+                
+                if (data.recent && data.recent.length > 0) {
+                    const lastSyncDate = new Date(data.recent[0].created_at);
+                    document.getElementById('lastSync').textContent = lastSyncDate.toLocaleString('es-PY');
+                }
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                showNotification('Error cargando estadísticas', 'error');
+            }
+        }
+
+        async function loadLogs() {
+            try {
+                const response = await fetch(`${API_BASE}/logs`);
+                const data = await response.json();
+                
+                const container = document.getElementById('logsContainer');
+                container.innerHTML = '';
+                
+                if (data.logs && data.logs.length > 0) {
+                    data.logs.forEach(log => {
+                        const logEntry = document.createElement('div');
+                        logEntry.className = 'log-entry';
+                        logEntry.innerHTML = `
+                            <span class="log-timestamp">${log.timestamp}</span>
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            <span>${log.message}</span>
+                        `;
+                        container.appendChild(logEntry);
+                    });
+                    container.scrollTop = container.scrollHeight;
+                } else {
+                    container.innerHTML = '<div class="log-entry">No hay logs disponibles</div>';
+                }
+                
+            } catch (error) {
+                console.error('Error loading logs:', error);
+                showNotification('Error cargando logs', 'error');
+            }
+        }
+
+        async function loadDeletedProducts() {
+            try {
+                const response = await fetch(`${API_BASE}/products/deleted`);
+                const data = await response.json();
+                
+                const container = document.getElementById('deletedProductsContainer');
+                
+                if (data.products && data.products.length > 0) {
+                    container.innerHTML = `
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th>Código Interno</th>
+                                    <th>Título</th>
+                                    <th>Fecha Eliminación</th>
+                                    <th>Razón</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${data.products.map(product => `
+                                    <tr>
+                                        <td>${product.cod_interno}</td>
+                                        <td>${product.post_title}</td>
+                                        <td>${new Date(product.deletion_date || product.post_modified).toLocaleDateString('es-PY')}</td>
+                                        <td>${product.deletion_reason || 'No especificada'}</td>
+                                        <td>
+                                            <button class="btn btn-success" onclick="quickRestore('${product.cod_interno}')">
+                                                Restaurar
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `;
+                } else {
+                    container.innerHTML = '<p>No hay productos eliminados recientemente</p>';
+                }
+                
+            } catch (error) {
+                console.error('Error loading deleted products:', error);
+                showNotification('Error cargando productos eliminados', 'error');
+            }
+        }
+
+        async function manualSync() {
+            try {
+                showNotification('Iniciando sincronización manual...', 'success');
+                const response = await fetch(`${API_BASE}/sync/start`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Sincronización iniciada exitosamente', 'success');
+                    setTimeout(loadDashboard, 2000);
+                } else {
+                    showNotification('Error iniciando sincronización', 'error');
+                }
+            } catch (error) {
+                console.error('Error starting manual sync:', error);
+                showNotification('Error iniciando sincronización', 'error');
+            }
+        }
+
+        async function deleteProduct(event) {
+            event.preventDefault();
+            const code = document.getElementById('deleteProductCode').value;
+            const reason = document.getElementById('deleteReason').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/products/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codInterno: code, reason })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Producto eliminado exitosamente', 'success');
+                    hideDeleteModal();
+                    loadDeletedProducts();
+                } else {
+                    showNotification(data.error || 'Error eliminando producto', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                showNotification('Error eliminando producto', 'error');
+            }
+        }
+
+        async function restoreProduct(event) {
+            event.preventDefault();
+            const code = document.getElementById('restoreProductCode').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/products/restore`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codInterno: code })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Producto restaurado exitosamente', 'success');
+                    hideRestoreModal();
+                    loadDeletedProducts();
+                } else {
+                    showNotification(data.error || 'Error restaurando producto', 'error');
+                }
+            } catch (error) {
+                console.error('Error restoring product:', error);
+                showNotification('Error restaurando producto', 'error');
+            }
+        }
+
+        async function quickRestore(codInterno) {
+            try {
+                const response = await fetch(`${API_BASE}/products/restore`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codInterno })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Producto restaurado exitosamente', 'success');
+                    loadDeletedProducts();
+                } else {
+                    showNotification(data.error || 'Error restaurando producto', 'error');
+                }
+            } catch (error) {
+                console.error('Error restoring product:', error);
+                showNotification('Error restaurando producto', 'error');
+            }
+        }
+
+        function showDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'block';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('deleteModal').style.display = 'none';
+            document.getElementById('deleteProductCode').value = '';
+            document.getElementById('deleteReason').value = '';
+        }
+
+        function showRestoreModal() {
+            document.getElementById('restoreModal').style.display = 'block';
+        }
+
+        function hideRestoreModal() {
+            document.getElementById('restoreModal').style.display = 'none';
+            document.getElementById('restoreProductCode').value = '';
+        }
+
+        function refreshLogs() {
+            loadLogs();
+        }
+
+        function refreshDeletedProducts() {
+            loadDeletedProducts();
+        }
+
+        function showNotification(message, type) {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(n => n.remove());
+            
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
+        }
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+            const deleteModal = document.getElementById('deleteModal');
+            const restoreModal = document.getElementById('restoreModal');
+            
+            if (event.target === deleteModal) {
+                hideDeleteModal();
+            }
+            if (event.target === restoreModal) {
+                hideRestoreModal();
+            }
+        }
+    </script>
+</body>
+</html>
