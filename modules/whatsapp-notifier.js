@@ -38,9 +38,10 @@ class WhatsAppNotifier {
             // Crear socket de WhatsApp
             this.sock = makeWASocket({
                 auth: state,
-                printQRInTerminal: true, // Mostrar QR en terminal para primera configuración
                 logger: this.createLogger(),
-                browser: ['Sincronizador ERP', 'Chrome', '1.0.0']
+                browser: ['Sincronizador ERP', 'Chrome', '1.0.0'],
+                // Removido printQRInTerminal ya que está deprecado
+                // El QR se maneja ahora en connection.update
             });
             
             // Configurar eventos
@@ -68,21 +69,21 @@ class WhatsAppNotifier {
                 console.log('   2. Ve a Configuración > Dispositivos vinculados');
                 console.log('   3. Escanea el código QR que aparece arriba');
                 console.log('   4. Espera la confirmación de conexión\n');
+                
+                // Aquí podrías agregar lógica para mostrar el QR de otra manera
+                // Por ejemplo, guardarlo como imagen o enviarlo por email
+                this.handleQRCode(qr);
             }
             
             if (connection === 'close') {
-                // Corrección: Usar JavaScript puro en lugar de TypeScript assertion
                 let shouldReconnect = false;
                 
                 if (lastDisconnect && lastDisconnect.error) {
-                    // Verificar si es una instancia de Boom y obtener el statusCode
                     if (lastDisconnect.error instanceof Boom) {
                         shouldReconnect = lastDisconnect.error.output?.statusCode !== DisconnectReason.loggedOut;
                     } else if (lastDisconnect.error.output && lastDisconnect.error.output.statusCode) {
-                        // Fallback para otros tipos de error que tengan la estructura similar
                         shouldReconnect = lastDisconnect.error.output.statusCode !== DisconnectReason.loggedOut;
                     } else {
-                        // Si no podemos determinar el tipo de error, intentar reconectar
                         shouldReconnect = true;
                     }
                 } else {
@@ -119,6 +120,24 @@ class WhatsAppNotifier {
                 await this.handleIncomingMessage(m);
             }
         });
+    }
+
+    // Método para manejar el QR code de manera personalizada
+    handleQRCode(qr) {
+        try {
+            // Podrías usar una librería como 'qrcode' para generar una imagen
+            // const QRCode = require('qrcode');
+            // QRCode.toFile('./qr.png', qr);
+            
+            // Por ahora solo logueamos que está disponible
+            console.log('📱 QR Code disponible para WhatsApp');
+            
+            // Si tienes configurado email, podrías enviar el QR por correo
+            // this.sendQRByEmail(qr);
+            
+        } catch (error) {
+            console.error('❌ Error manejando QR code:', error.message);
+        }
     }
 
     async handleIncomingMessage(messageUpdate) {
@@ -290,8 +309,9 @@ class WhatsAppNotifier {
     }
 
     createLogger() {
-        // Logger personalizado para Baileys (menos verboso)
-        return {
+        // Logger personalizado para Baileys con todos los métodos necesarios
+        const baseLogger = {
+            level: 'error', // Solo mostrar errores por defecto
             trace: () => {},
             debug: () => {},
             info: (msg) => {
@@ -301,8 +321,29 @@ class WhatsAppNotifier {
             },
             warn: (msg) => console.log('⚠️ WhatsApp:', msg),
             error: (msg) => console.log('❌ WhatsApp:', msg),
-            fatal: (msg) => console.log('💥 WhatsApp:', msg)
+            fatal: (msg) => console.log('💥 WhatsApp:', msg),
+            
+            // Método child necesario para Baileys
+            child: (bindings) => {
+                // Retornar el mismo logger pero con contexto adicional
+                return {
+                    ...baseLogger,
+                    trace: () => {},
+                    debug: () => {},
+                    info: (msg) => {
+                        if (typeof msg === 'string' && (msg.includes('connection') || msg.includes('auth'))) {
+                            console.log('📱 WhatsApp [' + (bindings.class || 'unknown') + ']:', msg);
+                        }
+                    },
+                    warn: (msg) => console.log('⚠️ WhatsApp [' + (bindings.class || 'unknown') + ']:', msg),
+                    error: (msg) => console.log('❌ WhatsApp [' + (bindings.class || 'unknown') + ']:', msg),
+                    fatal: (msg) => console.log('💥 WhatsApp [' + (bindings.class || 'unknown') + ']:', msg),
+                    child: (childBindings) => baseLogger.child({...bindings, ...childBindings})
+                };
+            }
         };
+        
+        return baseLogger;
     }
 
     async getStatus() {

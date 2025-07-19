@@ -813,7 +813,7 @@ function startCronJob() {
 
 function stopCronJob() {
   if (cronJob) {
-    cronJob.destroy();
+    cronJob.stop();
     cronJob = null;
     isCronActive = false;
     Logger.info("🛑 Cron job detenido");
