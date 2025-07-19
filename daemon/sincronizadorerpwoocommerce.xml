@@ -1,0 +1,35 @@
+<service>
+	<id>sincronizadorerpwoocommerce.exe</id>
+	<name>Sincronizador ERP WooCommerce</name>
+	<description>Servicio de sincronización bidireccional entre ERP y WooCommerce</description>
+	<executable>C:\Program Files\nodejs\node.exe</executable>
+	<argument>--max_old_space_size=1024</argument>
+	<argument>C:\e-Commerce-Services\sync-erp-woocommerce\node_modules\node-windows\lib\wrapper.js</argument>
+	<argument>--file</argument>
+	<argument>C:\e-Commerce-Services\sync-erp-woocommerce\app.js</argument>
+	<argument>--scriptoptions=</argument>
+	<argument>--log</argument>
+	<argument>Sincronizador ERP WooCommerce wrapper</argument>
+	<argument>--grow</argument>
+	<argument>0.25</argument>
+	<argument>--wait</argument>
+	<argument>1</argument>
+	<argument>--maxrestarts</argument>
+	<argument>10</argument>
+	<argument>--abortonerror</argument>
+	<argument>n</argument>
+	<argument>--stopparentfirst</argument>
+	<argument>undefined</argument>
+	<logmode>rotate</logmode>
+	<stoptimeout>30sec</stoptimeout>
+	<env name="NODE_ENV" value="production"/>
+	<env name="PORT" value="3001"/>
+	<env name="PATH" value="C:\e-Commerce-Services\sync-erp-woocommerce\node_modules\.bin;C:\e-Commerce-Services\node_modules\.bin;C:\node_modules\.bin;C:\Users\Administrador.WIN-KCVFQI4I6LB\AppData\Roaming\npm\node_modules\npm\node_modules\@npmcli\run-script\lib\node-gyp-bin;C:\instantclient23\oci.dll;C:\app\Administrador\product\18.0.0\dbhomeXE\;C:\app\Administrador\product\18.0.0\dbhomeXE\bin;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Python312\Scripts\;C:\Python312\;C:\Python311\Scripts\;C:\Python311\;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\ProgramData\Oracle\Java\javapath;C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\composer;C:\Program Files\Microsoft SQL Server\110\Tools\Binn\;C:\ProgramData\chocolatey\bin;C:\Program Files\Certbot\bin;C:\Program Files (x86)\bin;C:\Program Files\dotnet\;C:\Program Files\Git\cmd;c:\nginxwww\bin;C:\Program Files\Certbot\bin;C:\Program Files (x86)\bin;C:\Program Files\nodejs\;C:\Program Files (x86)\bin;C:\Program Files\Java\jdk-11\bin;C:\Users\Administrador.WIN-KCVFQI4I6LB\AppData\Local\Microsoft\WindowsApps;C:\WinNMP\bin;C:\Users\Administrador.WIN-KCVFQI4I6LB\AppData\Local\Programs\Microsoft VS Code\bin;C:\Users\Administrador.WIN-KCVFQI4I6LB\AppData\Roaming\Composer\vendor\bin;C:\app\Administrador\product\18.0.0\dbhomeXE\;C:\NginxWWW\bin;C:\Users\Administrador.WIN-KCVFQI4I6LB\AppData\Roaming\npm"/>
+	<serviceaccount>
+		<domain>WIN-KCVFQI4I6LB</domain>
+		<user>LocalSystem</user>
+		<password></password>
+		<allowservicelogon>true</allowservicelogon>
+	</serviceaccount>
+	<workingdirectory>C:\e-Commerce-Services\sync-erp-woocommerce</workingdirectory>
+</service>
