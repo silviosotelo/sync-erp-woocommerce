@@ -1,7 +1,7 @@
 {
   "name": "sync-erp-woocommerce",
   "version": "2.0.0",
-  "description": "Sincronizador bidireccional ERP ↔ WooCommerce con dashboard de monitoreo y cron job automático",
+  "description": "Sincronizador bidireccional ERP ↔ WooCommerce con dashboard de monitoreo, notificaciones WhatsApp y cron job automático",
   "main": "app.js",
   "scripts": {
     "start": "node start.js",
@@ -11,6 +11,7 @@
     "sync": "node sync-enhanced.js",
     "sync:once": "node -e \"require('./sync-enhanced').main()\"",
     "setup": "node setup.js",
+    "setup:whatsapp": "node setup-whatsapp.js",
     "troubleshoot": "node troubleshoot.js",
     "diagnose": "node troubleshoot.js",
     "install-service": "node install-service.js",
@@ -37,9 +38,9 @@
     "pm2:restart": "pm2 restart sync-erp-woocommerce",
     "pm2:logs": "pm2 logs sync-erp-woocommerce",
     "pm2:status": "pm2 status",
-    "postinstall": "node -e \"console.log('\\n🎉 Instalación completada!\\n📋 Siguiente paso: npm run setup\\n🚀 Luego ejecuta: npm start\\n')\"",
-    "prestart": "node -e \"if (!require('fs').existsSync('.env')) { console.log('⚠️ Archivo .env no encontrado. Ejecuta: npm run setup'); process.exit(1); }\"",
-    "prepare": "node -e \"['logs','backups','tmp'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
+    "postinstall": "node -e \"console.log('\\n🎉 Instalación completada!\\n📋 Siguiente paso: npm run setup\\n🚀 Luego ejecuta: npm start\\n📱 Para WhatsApp: npm run setup:whatsapp\\n')\"",
+    "prestart": "node -e \"const path = require('path'); const fs = require('fs'); const envPath = path.join(process.cwd(), '.env'); if (!fs.existsSync(envPath)) { console.log('⚠️ Archivo .env no encontrado en:', envPath); console.log('📝 Ejecuta: npm run setup'); process.exit(1); }\"",
+    "prepare": "node -e \"['logs','backups','tmp','modules'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
   },
   "keywords": [
     "woocommerce",
@@ -51,7 +52,10 @@
     "cron",
     "automation",
     "farmatotal",
-    "pharmacy"
+    "pharmacy",
+    "whatsapp",
+    "notifications",
+    "baileys"
   ],
   "author": {
     "name": "Tu Empresa",
@@ -101,7 +105,8 @@
   "optionalDependencies": {
     "node-windows": "^1.0.0-beta.8",
     "pm2": "^5.3.0",
-    "pm2-windows-startup": "^1.0.4"
+    "pm2-windows-startup": "^1.0.4",
+    "pm2-windows-service": "^0.2.4"
   },
   "engines": {
     "node": ">=16.0.0",
@@ -117,17 +122,24 @@
     "sync-enhanced.js",
     "start.js",
     "setup.js",
+    "setup-whatsapp.js",
     "troubleshoot.js",
     "test-sync.js",
     "api-endpoints.js",
     "dashboard-server.js",
     "install-service.js",
+    "install-pm2-service.js",
+    "install-service-native.js",
     "uninstall-service.js",
+    "uninstall-service-native.js",
     "ecosystem.config.js",
     "scripts/",
     "dashboard/",
+    "modules/",
     "README.md",
-    "guia.md"
+    "guia.md",
+    "CONFIGURACION_MODULAR.md",
+    "TROUBLESHOOTING.md"
   ],
   "config": {
     "port": "3001",
@@ -137,5 +149,44 @@
   "funding": {
     "type": "individual",
     "url": "https://github.com/sponsors/tu-usuario"
+  },
+  "directories": {
+    "lib": "./modules",
+    "doc": "./docs",
+    "test": "./tests"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "*.js",
+      "modules/",
+      "scripts/"
+    ],
+    "ignore": [
+      "logs/",
+      "backups/",
+      "tmp/",
+      "node_modules/"
+    ],
+    "ext": "js,json,env"
+  },
+  "eslintConfig": {
+    "env": {
+      "node": true,
+      "es2022": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 2022
+    },
+    "rules": {
+      "no-console": "off",
+      "no-unused-vars": "warn"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5"
   }
 }

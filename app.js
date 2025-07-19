@@ -1,5 +1,5 @@
 /**
- * app.js - VERSIÓN MODULAR
+ * app.js - VERSIÓN MODULAR CON WHATSAPP COMPLETO
  * Aplicación principal del Sincronizador ERP ↔ WooCommerce
  * Configuración modular basada en variables de entorno
  */
@@ -95,6 +95,11 @@ app.get('/api/config', (req, res) => {
         connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT) || 15,
         timeout: parseInt(process.env.DB_TIMEOUT) || 30000
       },
+      whatsapp: {
+        enabled: process.env.WHATSAPP_ENABLED === 'true',
+        recipient: process.env.WHATSAPP_RECIPIENT || null,
+        respondCommands: process.env.WHATSAPP_RESPOND_COMMANDS === 'true'
+      },
       version: require('./package.json').version || '2.0.0'
     };
     
@@ -119,7 +124,8 @@ app.post('/api/config/update', (req, res) => {
       'WHATSAPP_ENABLED', 
       'SMTP_ENABLED',
       'SMS_ENABLED',
-      'AUTO_SYNC_ENABLED'
+      'AUTO_SYNC_ENABLED',
+      'BACKUP_ENABLED'
     ];
     
     if (!validFeatures.includes(feature)) {
@@ -131,6 +137,19 @@ app.post('/api/config/update', (req, res) => {
     
     Logger.info(`Configuración actualizada: ${feature} = ${enabled}`);
     
+    // Si es WhatsApp, reinicializar conexión si es necesario
+    if (feature === 'WHATSAPP_ENABLED') {
+      if (enabled && WhatsAppNotifier) {
+        WhatsAppNotifier.initialize().catch(err => {
+          Logger.warn('Error reinicializando WhatsApp:', err.message);
+        });
+      } else if (!enabled && WhatsAppNotifier) {
+        WhatsAppNotifier.disconnect().catch(err => {
+          Logger.warn('Error desconectando WhatsApp:', err.message);
+        });
+      }
+    }
+    
     res.json({
       success: true,
       message: `${feature} ${enabled ? 'habilitado' : 'deshabilitado'}`,
@@ -138,6 +157,35 @@ app.post('/api/config/update', (req, res) => {
     });
   } catch (error) {
     Logger.error('Error actualizando configuración:', error.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Actualizar configuración específica de WhatsApp
+app.post('/api/whatsapp/config', (req, res) => {
+  try {
+    const { recipient, respondCommands } = req.body;
+    
+    if (recipient) {
+      process.env.WHATSAPP_RECIPIENT = recipient;
+      Logger.info(`WhatsApp recipient actualizado: ${recipient}`);
+    }
+    
+    if (respondCommands !== undefined) {
+      process.env.WHATSAPP_RESPOND_COMMANDS = respondCommands ? 'true' : 'false';
+      Logger.info(`WhatsApp respond commands: ${respondCommands}`);
+    }
+    
+    res.json({
+      success: true,
+      message: 'Configuración de WhatsApp actualizada',
+      config: {
+        recipient: process.env.WHATSAPP_RECIPIENT,
+        respondCommands: process.env.WHATSAPP_RESPOND_COMMANDS === 'true'
+      }
+    });
+  } catch (error) {
+    Logger.error('Error actualizando configuración WhatsApp:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -370,6 +418,7 @@ app.get('/api/whatsapp/status', async (req, res) => {
     if (process.env.WHATSAPP_ENABLED !== 'true') {
       return res.json({
         enabled: false,
+        connected: false,
         status: 'disabled',
         message: 'WhatsApp no está habilitado en la configuración'
       });
@@ -378,6 +427,7 @@ app.get('/api/whatsapp/status', async (req, res) => {
     if (!WhatsAppNotifier) {
       return res.json({
         enabled: true,
+        connected: false,
         status: 'error',
         message: 'Módulo WhatsApp no se pudo cargar'
       });
@@ -388,6 +438,105 @@ app.get('/api/whatsapp/status', async (req, res) => {
   } catch (error) {
     Logger.error('Error obteniendo estado WhatsApp:', error.message);
     res.status(500).json({ error: 'Error obteniendo estado WhatsApp' });
+  }
+});
+
+// Limpiar sesión de WhatsApp
+app.post('/api/whatsapp/clear-session', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    }
+    
+    await WhatsAppNotifier.clearSession();
+    
+    res.json({
+      success: true,
+      message: 'Sesión WhatsApp limpiada exitosamente'
+    });
+  } catch (error) {
+    Logger.error('Error limpiando sesión WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error limpiando sesión WhatsApp' });
+  }
+});
+
+// Desconectar WhatsApp
+app.post('/api/whatsapp/disconnect', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    }
+    
+    await WhatsAppNotifier.disconnect();
+    
+    res.json({
+      success: true,
+      message: 'WhatsApp desconectado exitosamente'
+    });
+  } catch (error) {
+    Logger.error('Error desconectando WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error desconectando WhatsApp' });
+  }
+});
+
+// Reinicializar WhatsApp
+app.post('/api/whatsapp/reconnect', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    }
+    
+    await WhatsAppNotifier.disconnect();
+    setTimeout(async () => {
+      try {
+        await WhatsAppNotifier.initialize();
+      } catch (error) {
+        Logger.error('Error reinicializando WhatsApp:', error.message);
+      }
+    }, 2000);
+    
+    res.json({
+      success: true,
+      message: 'WhatsApp reinicializado, esperando conexión...'
+    });
+  } catch (error) {
+    Logger.error('Error reinicializando WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error reinicializando WhatsApp' });
+  }
+});
+
+// Inicializar WhatsApp (para primera vez)
+app.post('/api/whatsapp/initialize', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    }
+    
+    await WhatsAppNotifier.initialize();
+    
+    res.json({
+      success: true,
+      message: 'WhatsApp inicializado, escanea el código QR en la consola'
+    });
+  } catch (error) {
+    Logger.error('Error inicializando WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error inicializando WhatsApp' });
   }
 });
 
@@ -635,6 +784,16 @@ app.get('/health', async (req, res) => {
     await query('SELECT 1');
     const cronStatus = getCronStatus();
     
+    let whatsappConnected = false;
+    if (process.env.WHATSAPP_ENABLED === 'true' && WhatsAppNotifier) {
+      try {
+        const status = await WhatsAppNotifier.getStatus();
+        whatsappConnected = status.connected;
+      } catch (error) {
+        // Ignorar errores de WhatsApp para health check
+      }
+    }
+    
     res.json({ 
       status: 'OK', 
       timestamp: new Date(),
@@ -643,7 +802,8 @@ app.get('/health', async (req, res) => {
         database: 'connected',
         sync: cronStatus.active ? 'running' : 'stopped',
         cronJob: cronStatus,
-        whatsapp: process.env.WHATSAPP_ENABLED === 'true' ? 'enabled' : 'disabled',
+        whatsapp: process.env.WHATSAPP_ENABLED === 'true' ? 
+          (whatsappConnected ? 'connected' : 'enabled-disconnected') : 'disabled',
         multiInventory: process.env.MULTI_INVENTORY_ENABLED === 'true' ? 'enabled' : 'disabled'
       }
     });
@@ -699,6 +859,7 @@ function checkConfigurationAndShowFeatures() {
   
   if (process.env.WHATSAPP_ENABLED === 'true') {
     console.log('\n📱 WhatsApp habilitado - Se enviaran notificaciones');
+    console.log(`   📞 Destinatario: ${process.env.WHATSAPP_RECIPIENT || 'No configurado'}`);
   }
   
   console.log('\n🚀 Para cambiar configuración, edita el archivo .env\n');
@@ -767,6 +928,12 @@ function generateBasicDashboard() {
         </div>
         ` : ''}
         
+        ${features.whatsapp ? `
+        <div class="status info">
+          📱 WHATSAPP ACTIVADO: Recibirás notificaciones en ${process.env.WHATSAPP_RECIPIENT || 'número no configurado'}
+        </div>
+        ` : ''}
+        
         <div class="grid">
           <div>
             <h3>🔧 Control del Sistema:</h3>
@@ -781,6 +948,7 @@ function generateBasicDashboard() {
             ${features.whatsapp ? `
             <button onclick="testWhatsApp()">📱 Probar WhatsApp</button>
             <button onclick="checkWhatsAppStatus()">📊 Estado WhatsApp</button>
+            <button onclick="clearWhatsAppSession()">🧹 Limpiar Sesión</button>
             ` : `
             <p>Para activar WhatsApp, configura WHATSAPP_ENABLED=true en .env</p>
             `}
@@ -791,6 +959,9 @@ function generateBasicDashboard() {
           ⏳ Verificando estado del cron job...
         </div>
         
+        <h2>🌐 Dashboard Completo:</h2>
+        <p><a href="/dashboard/index.html" target="_blank" style="color: #007bff; text-decoration: none; font-weight: bold;">🚀 Abrir Dashboard Avanzado con WhatsApp</a></p>
+        
         <h2>🌐 APIs Disponibles:</h2>
         <ul>
           <li><a href="/api/config">GET /api/config</a> - Configuración del sistema</li>
@@ -799,15 +970,6 @@ function generateBasicDashboard() {
           <li><a href="/api/cron/status">GET /api/cron/status</a> - Estado del cron job</li>
           <li><a href="/api/whatsapp/status">GET /api/whatsapp/status</a> - Estado de WhatsApp</li>
           <li><a href="/health">GET /health</a> - Health check</li>
-        </ul>
-        
-        <h2>📋 Configuración (.env):</h2>
-        <p>Para modificar funcionalidades, edita el archivo .env:</p>
-        <ul>
-          <li><strong>MULTI_INVENTORY_ENABLED</strong>=true/false - Activar multi-inventario</li>
-          <li><strong>WHATSAPP_ENABLED</strong>=true/false - Activar notificaciones WhatsApp</li>
-          <li><strong>AUTO_SYNC_ENABLED</strong>=true/false - Activar sincronización automática</li>
-          <li><strong>SYNC_INTERVAL_MINUTES</strong>=10 - Intervalo de sincronización</li>
         </ul>
       </div>
       
@@ -850,7 +1012,7 @@ function generateBasicDashboard() {
             const response = await fetch('/api/whatsapp/test', { 
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: '🧪 Prueba desde dashboard del Sincronizador ERP' })
+              body: JSON.stringify({ message: '🧪 Prueba desde dashboard básico del Sincronizador ERP' })
             });
             const data = await response.json();
             alert(data.message || 'Mensaje WhatsApp enviado');
@@ -864,6 +1026,16 @@ function generateBasicDashboard() {
             const response = await fetch('/api/whatsapp/status');
             const data = await response.json();
             alert('Estado WhatsApp: ' + data.status + '\\n' + (data.message || ''));
+          } catch (error) {
+            alert('Error: ' + error.message);
+          }
+        }
+        
+        async function clearWhatsAppSession() {
+          try {
+            const response = await fetch('/api/whatsapp/clear-session', { method: 'POST' });
+            const data = await response.json();
+            alert(data.message || 'Sesión WhatsApp limpiada');
           } catch (error) {
             alert('Error: ' + error.message);
           }
@@ -1004,7 +1176,7 @@ initializeApp().then(() => {
 ║  🔄 Auto-Sync: ${process.env.AUTO_SYNC_ENABLED !== 'false' ? '✅ ACTIVADO' : '❌ DESACTIVADO'}                    ║
 ║                                                              ║
 ║  Status: ✅ EJECUTÁNDOSE                                     ║
-║  Versión: 2.0.0 (Sistema Modular)                          ║
+║  Versión: 2.0.0 (Sistema Modular con WhatsApp)             ║
 ║                                                              ║
 ╚══════════════════════════════════════════════════════════════╝
     `);

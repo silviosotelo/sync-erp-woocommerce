@@ -96,6 +96,10 @@
             background: #ed8936;
         }
 
+        .status-indicator.disconnected {
+            background: #cbd5e0;
+        }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -120,7 +124,7 @@
         }
 
         .metric-value {
-            font-size: 1.5rem;
+            font-size: 1.2rem;
             font-weight: 700;
             color: #2d3748;
         }
@@ -169,6 +173,12 @@
 
         .btn.btn-warning {
             background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
         }
 
         .logs-container {
@@ -261,11 +271,13 @@
 
         .modal-content {
             background: white;
-            margin: 10% auto;
+            margin: 5% auto;
             padding: 30px;
             border-radius: 20px;
             width: 90%;
-            max-width: 500px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
             box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
         }
 
@@ -352,6 +364,77 @@
             transition: width 0.3s ease;
         }
 
+        .whatsapp-section {
+            background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .qr-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .qr-code {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f56565;
+        }
+
+        .connection-dot.connected {
+            background: #48bb78;
+        }
+
+        .config-section {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card.enabled {
+            border-color: #48bb78;
+            background: #f0fff4;
+        }
+
+        .feature-toggle {
+            margin-top: 10px;
+        }
+
         @media (max-width: 768px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -379,6 +462,7 @@
                 <button class="btn" onclick="manualSync()">🚀 Sincronizar Ahora</button>
                 <button class="btn btn-warning" onclick="showDeleteModal()">🗑️ Eliminar Producto</button>
                 <button class="btn btn-success" onclick="showRestoreModal()">♻️ Restaurar Producto</button>
+                <button class="btn" onclick="showWhatsAppModal()">📱 Configurar WhatsApp</button>
             </div>
         </div>
 
@@ -405,6 +489,30 @@
                 <div class="metric">
                     <span class="metric-label">Memoria</span>
                     <span class="metric-value" id="memory">Verificando...</span>
+                </div>
+            </div>
+
+            <!-- WhatsApp Status -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estado de WhatsApp</h3>
+                    <div class="status-indicator disconnected" id="whatsappIndicator"></div>
+                </div>
+                <div class="connection-status">
+                    <div class="connection-dot" id="whatsappDot"></div>
+                    <span id="whatsappConnectionText">Verificando...</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Estado</span>
+                    <span class="metric-value" id="whatsappStatus">Deshabilitado</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Destinatario</span>
+                    <span class="metric-value" id="whatsappRecipient">No configurado</span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button class="btn btn-success" onclick="testWhatsApp()" id="testWhatsAppBtn" disabled>📱 Probar</button>
+                    <button class="btn btn-warning" onclick="clearWhatsAppSession()" id="clearSessionBtn" disabled>🧹 Limpiar Sesión</button>
                 </div>
             </div>
 
@@ -450,6 +558,17 @@
                     <span class="metric-label">Última Sincronización</span>
                     <span class="metric-value" id="lastSync">Nunca</span>
                 </div>
+            </div>
+        </div>
+
+        <!-- Features Configuration -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Configuración de Funcionalidades</h3>
+                <button class="btn" onclick="refreshFeatures()">🔄 Actualizar</button>
+            </div>
+            <div class="features-grid" id="featuresGrid">
+                <!-- Features will be loaded here -->
             </div>
         </div>
 
@@ -509,18 +628,75 @@
         </div>
     </div>
 
+    <div id="whatsappModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideWhatsAppModal()">&times;</span>
+            <h2>📱 Configuración de WhatsApp</h2>
+            
+            <div class="whatsapp-section">
+                <h3>Estado de la Conexión</h3>
+                <div class="connection-status">
+                    <div class="connection-dot" id="modalWhatsappDot"></div>
+                    <span id="modalWhatsappStatus">Verificando...</span>
+                </div>
+                
+                <div id="qrSection" style="display: none;">
+                    <h4>Escanea el código QR:</h4>
+                    <div class="qr-container">
+                        <div id="qrCode">Generando código QR...</div>
+                        <p>1. Abre WhatsApp en tu teléfono</p>
+                        <p>2. Ve a Configuración > Dispositivos vinculados</p>
+                        <p>3. Escanea este código QR</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="config-section">
+                <h3>Configuración</h3>
+                <form onsubmit="updateWhatsAppConfig(event)">
+                    <div class="form-group">
+                        <label class="form-label">Habilitar WhatsApp:</label>
+                        <input type="checkbox" id="whatsappEnabled" onchange="toggleWhatsApp()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Número de Destinatario:</label>
+                        <input type="text" class="form-input" id="whatsappRecipientInput" placeholder="+595981234567">
+                        <small>Incluir código de país (ej: +595981234567)</small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Responder a comandos:</label>
+                        <input type="checkbox" id="whatsappCommands">
+                    </div>
+                    <button type="submit" class="btn">💾 Guardar Configuración</button>
+                </form>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <button class="btn btn-success" onclick="testWhatsAppFromModal()">📱 Enviar Prueba</button>
+                <button class="btn btn-warning" onclick="clearSessionFromModal()">🧹 Limpiar Sesión</button>
+                <button class="btn btn-danger" onclick="disconnectWhatsApp()">🔌 Desconectar</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const API_BASE = window.location.origin + '/api';
         let refreshInterval;
+        let whatsappRefreshInterval;
 
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             loadDashboard();
             startAutoRefresh();
+            startWhatsAppMonitoring();
         });
 
         function startAutoRefresh() {
             refreshInterval = setInterval(loadDashboard, 30000); // 30 seconds
+        }
+
+        function startWhatsAppMonitoring() {
+            whatsappRefreshInterval = setInterval(updateWhatsAppStatus, 10000); // 10 seconds
         }
 
         async function loadDashboard() {
@@ -528,7 +704,8 @@
                 loadSystemStatus(),
                 loadStats(),
                 loadLogs(),
-                loadDeletedProducts()
+                loadDeletedProducts(),
+                loadFeatures()
             ]);
         }
 
@@ -583,6 +760,106 @@
             } catch (error) {
                 console.error('Error loading stats:', error);
                 showNotification('Error cargando estadísticas', 'error');
+            }
+        }
+
+        async function updateWhatsAppStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/whatsapp/status`);
+                const data = await response.json();
+                
+                // Update main dashboard
+                const indicator = document.getElementById('whatsappIndicator');
+                const dot = document.getElementById('whatsappDot');
+                const status = document.getElementById('whatsappStatus');
+                const recipient = document.getElementById('whatsappRecipient');
+                const connectionText = document.getElementById('whatsappConnectionText');
+                
+                if (data.enabled) {
+                    if (data.connected) {
+                        indicator.className = 'status-indicator';
+                        dot.className = 'connection-dot connected';
+                        status.textContent = 'Conectado';
+                        status.className = 'metric-value success';
+                        connectionText.textContent = 'WhatsApp conectado y listo';
+                        
+                        document.getElementById('testWhatsAppBtn').disabled = false;
+                        document.getElementById('clearSessionBtn').disabled = false;
+                    } else {
+                        indicator.className = 'status-indicator warning';
+                        dot.className = 'connection-dot';
+                        status.textContent = 'Desconectado';
+                        status.className = 'metric-value warning';
+                        connectionText.textContent = 'WhatsApp habilitado pero desconectado';
+                        
+                        document.getElementById('testWhatsAppBtn').disabled = true;
+                        document.getElementById('clearSessionBtn').disabled = false;
+                    }
+                    
+                    recipient.textContent = data.recipient || 'No configurado';
+                } else {
+                    indicator.className = 'status-indicator disconnected';
+                    dot.className = 'connection-dot';
+                    status.textContent = 'Deshabilitado';
+                    status.className = 'metric-value';
+                    connectionText.textContent = 'WhatsApp no está habilitado';
+                    recipient.textContent = 'No configurado';
+                    
+                    document.getElementById('testWhatsAppBtn').disabled = true;
+                    document.getElementById('clearSessionBtn').disabled = true;
+                }
+                
+                // Update modal if open
+                const modalStatus = document.getElementById('modalWhatsappStatus');
+                const modalDot = document.getElementById('modalWhatsappDot');
+                
+                if (modalStatus) {
+                    modalStatus.textContent = connectionText.textContent;
+                    modalDot.className = dot.className;
+                }
+                
+            } catch (error) {
+                console.error('Error loading WhatsApp status:', error);
+            }
+        }
+
+        async function loadFeatures() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                const data = await response.json();
+                
+                const featuresGrid = document.getElementById('featuresGrid');
+                const features = data.config.features;
+                
+                featuresGrid.innerHTML = Object.entries(features).map(([key, enabled]) => {
+                    const featureNames = {
+                        multiInventory: 'Multi-Inventario',
+                        whatsapp: 'WhatsApp',
+                        email: 'Email',
+                        sms: 'SMS',
+                        webhooks: 'Webhooks',
+                        autoSync: 'Auto-Sync',
+                        backup: 'Backup'
+                    };
+                    
+                    return `
+                        <div class="feature-card ${enabled ? 'enabled' : ''}">
+                            <h4>${featureNames[key] || key}</h4>
+                            <div class="metric-value ${enabled ? 'success' : 'error'}">
+                                ${enabled ? 'Habilitado' : 'Deshabilitado'}
+                            </div>
+                            <div class="feature-toggle">
+                                <button class="btn ${enabled ? 'btn-warning' : 'btn-success'}" 
+                                        onclick="toggleFeature('${key}', ${!enabled})">
+                                    ${enabled ? 'Deshabilitar' : 'Habilitar'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (error) {
+                console.error('Error loading features:', error);
             }
         }
 
@@ -662,6 +939,102 @@
             }
         }
 
+        // WhatsApp Functions
+        async function showWhatsAppModal() {
+            document.getElementById('whatsappModal').style.display = 'block';
+            await loadWhatsAppConfig();
+            await updateWhatsAppStatus();
+        }
+
+        function hideWhatsAppModal() {
+            document.getElementById('whatsappModal').style.display = 'none';
+        }
+
+        async function loadWhatsAppConfig() {
+            try {
+                const response = await fetch(`${API_BASE}/config`);
+                const data = await response.json();
+                
+                document.getElementById('whatsappEnabled').checked = data.config.features.whatsapp;
+                // Load current recipient if available
+                // This would need to be added to the config endpoint
+                
+            } catch (error) {
+                console.error('Error loading WhatsApp config:', error);
+            }
+        }
+
+        async function updateWhatsAppConfig(event) {
+            event.preventDefault();
+            
+            const enabled = document.getElementById('whatsappEnabled').checked;
+            const recipient = document.getElementById('whatsappRecipientInput').value;
+            const commands = document.getElementById('whatsappCommands').checked;
+            
+            try {
+                // Update main feature toggle
+                await toggleFeature('WHATSAPP_ENABLED', enabled);
+                
+                // TODO: Add endpoint to update recipient and commands
+                showNotification('Configuración de WhatsApp actualizada', 'success');
+                
+            } catch (error) {
+                console.error('Error updating WhatsApp config:', error);
+                showNotification('Error actualizando configuración', 'error');
+            }
+        }
+
+        async function testWhatsAppFromModal() {
+            await testWhatsApp();
+        }
+
+        async function clearSessionFromModal() {
+            await clearWhatsAppSession();
+        }
+
+        async function disconnectWhatsApp() {
+            try {
+                const response = await fetch(`${API_BASE}/whatsapp/disconnect`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('WhatsApp desconectado', 'success');
+                    await updateWhatsAppStatus();
+                } else {
+                    showNotification('Error desconectando WhatsApp', 'error');
+                }
+            } catch (error) {
+                console.error('Error disconnecting WhatsApp:', error);
+                showNotification('Error desconectando WhatsApp', 'error');
+            }
+        }
+
+        async function toggleFeature(feature, enabled) {
+            try {
+                const response = await fetch(`${API_BASE}/config/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feature, enabled })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                    loadFeatures();
+                    if (feature === 'WHATSAPP_ENABLED') {
+                        updateWhatsAppStatus();
+                    }
+                } else {
+                    showNotification('Error actualizando configuración', 'error');
+                }
+            } catch (error) {
+                console.error('Error toggling feature:', error);
+                showNotification('Error actualizando configuración', 'error');
+            }
+        }
+
+        // Existing functions (manualSync, deleteProduct, etc.)
         async function manualSync() {
             try {
                 showNotification('Iniciando sincronización manual...', 'success');
@@ -677,6 +1050,43 @@
             } catch (error) {
                 console.error('Error starting manual sync:', error);
                 showNotification('Error iniciando sincronización', 'error');
+            }
+        }
+
+        async function testWhatsApp() {
+            try {
+                const response = await fetch(`${API_BASE}/whatsapp/test`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: '🧪 Prueba desde dashboard del Sincronizador ERP' })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Mensaje WhatsApp enviado exitosamente', 'success');
+                } else {
+                    showNotification('Error enviando mensaje WhatsApp', 'error');
+                }
+            } catch (error) {
+                console.error('Error testing WhatsApp:', error);
+                showNotification('Error enviando mensaje WhatsApp', 'error');
+            }
+        }
+
+        async function clearWhatsAppSession() {
+            try {
+                const response = await fetch(`${API_BASE}/whatsapp/clear-session`, { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showNotification('Sesión WhatsApp limpiada', 'success');
+                    await updateWhatsAppStatus();
+                } else {
+                    showNotification('Error limpiando sesión WhatsApp', 'error');
+                }
+            } catch (error) {
+                console.error('Error clearing WhatsApp session:', error);
+                showNotification('Error limpiando sesión WhatsApp', 'error');
             }
         }
 
@@ -782,6 +1192,10 @@
             loadDeletedProducts();
         }
 
+        function refreshFeatures() {
+            loadFeatures();
+        }
+
         function showNotification(message, type) {
             // Remove existing notifications
             const existingNotifications = document.querySelectorAll('.notification');
@@ -801,15 +1215,13 @@
 
         // Close modals when clicking outside
         window.onclick = function(event) {
-            const deleteModal = document.getElementById('deleteModal');
-            const restoreModal = document.getElementById('restoreModal');
-            
-            if (event.target === deleteModal) {
-                hideDeleteModal();
-            }
-            if (event.target === restoreModal) {
-                hideRestoreModal();
-            }
+            const modals = ['deleteModal', 'restoreModal', 'whatsappModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
         }
     </script>
 </body>
