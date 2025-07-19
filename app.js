@@ -384,9 +384,164 @@ app.post('/api/cron/stop', (req, res) => {
   }
 });
 
-// ============ WHATSAPP NOTIFICATIONS ============
+// ============ WHATSAPP ENDPOINTS MEJORADOS ============
 
-// Enviar notificación de prueba por WhatsApp
+// Obtener estado completo de WhatsApp incluyendo QR
+app.get('/api/whatsapp/status', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.json({
+        enabled: false,
+        connected: false,
+        connecting: false,
+        status: 'disabled',
+        message: 'WhatsApp no está habilitado en la configuración'
+      });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.json({
+        enabled: true,
+        connected: false,
+        connecting: false,
+        status: 'error',
+        message: 'Módulo WhatsApp no se pudo cargar'
+      });
+    }
+    
+    const status = await WhatsAppNotifier.getStatus();
+    
+    // Si hay QR disponible, incluir la imagen base64
+    if (status.hasQR) {
+      const instance = WhatsAppNotifier.getInstance();
+      if (instance) {
+        const qrDataURL = await instance.getQRDataURL();
+        status.qrImage = qrDataURL;
+      }
+    }
+    
+    res.json(status);
+  } catch (error) {
+    Logger.error('Error obteniendo estado WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error obteniendo estado WhatsApp' });
+  }
+});
+
+// Inicializar nueva sesión de WhatsApp
+app.post('/api/whatsapp/initialize', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    if (!WhatsAppNotifier) {
+      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    }
+    
+    // Limpiar sesión existente si es necesario
+    await WhatsAppNotifier.clearSession();
+    
+    // Inicializar nueva sesión
+    await WhatsAppNotifier.initialize();
+    
+    res.json({
+      success: true,
+      message: 'Inicialización de WhatsApp comenzada. Escaneando para QR...'
+    });
+    
+  } catch (error) {
+    Logger.error('Error inicializando WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error inicializando WhatsApp' });
+  }
+});
+
+// Obtener QR code como imagen
+app.get('/api/whatsapp/qr', async (req, res) => {
+  try {
+    if (process.env.WHATSAPP_ENABLED !== 'true') {
+      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    }
+    
+    const instance = WhatsAppNotifier.getInstance();
+    if (!instance) {
+      return res.status(404).json({ error: 'WhatsApp no inicializado' });
+    }
+    
+    const qrDataURL = await instance.getQRDataURL();
+    if (!qrDataURL) {
+      return res.status(404).json({ error: 'QR no disponible' });
+    }
+    
+    res.json({
+      success: true,
+      qr: qrDataURL,
+      message: 'QR code disponible'
+    });
+    
+  } catch (error) {
+    Logger.error('Error obteniendo QR:', error.message);
+    res.status(500).json({ error: 'Error obteniendo QR code' });
+  }
+});
+
+// Server-Sent Events para actualizaciones en tiempo real
+app.get('/api/whatsapp/events', (req, res) => {
+  if (process.env.WHATSAPP_ENABLED !== 'true') {
+    return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+  }
+  
+  // Configurar SSE
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Cache-Control'
+  });
+  
+  const instance = WhatsAppNotifier.getInstance();
+  if (!instance) {
+    res.write(`data: ${JSON.stringify({ type: 'error', message: 'WhatsApp no inicializado' })}\n\n`);
+    res.end();
+    return;
+  }
+  
+  // Enviar estado inicial
+  instance.getStatus().then(status => {
+    res.write(`data: ${JSON.stringify({ type: 'status', data: status })}\n\n`);
+  });
+  
+  // Registrar callbacks para actualizaciones
+  const qrUnsubscribe = instance.onQRUpdate((qr) => {
+    instance.getQRDataURL().then(qrDataURL => {
+      res.write(`data: ${JSON.stringify({ 
+        type: 'qr', 
+        data: { qr: qrDataURL, raw: qr } 
+      })}\n\n`);
+    });
+  });
+  
+  const statusUnsubscribe = instance.onStatusUpdate((status) => {
+    res.write(`data: ${JSON.stringify({ type: 'status_update', data: status })}\n\n`);
+  });
+  
+  // Limpiar cuando el cliente se desconecta
+  req.on('close', () => {
+    qrUnsubscribe();
+    statusUnsubscribe();
+  });
+  
+  // Heartbeat cada 30 segundos
+  const heartbeat = setInterval(() => {
+    res.write(`data: ${JSON.stringify({ type: 'heartbeat', timestamp: Date.now() })}\n\n`);
+  }, 30000);
+  
+  req.on('close', () => {
+    clearInterval(heartbeat);
+  });
+});
+
+// Enviar mensaje de prueba por WhatsApp
 app.post('/api/whatsapp/test', async (req, res) => {
   try {
     if (process.env.WHATSAPP_ENABLED !== 'true') {
@@ -398,46 +553,17 @@ app.post('/api/whatsapp/test', async (req, res) => {
     }
     
     const { message } = req.body;
-    const testMessage = message || '🧪 Mensaje de prueba del Sincronizador ERP';
+    const testMessage = message || '🧪 Mensaje de prueba desde el dashboard del Sincronizador ERP';
     
     await WhatsAppNotifier.sendNotification(testMessage);
     
     res.json({
       success: true,
-      message: 'Notificación WhatsApp enviada exitosamente'
+      message: 'Mensaje WhatsApp enviado exitosamente'
     });
   } catch (error) {
-    Logger.error('Error enviando notificación WhatsApp:', error.message);
-    res.status(500).json({ error: 'Error enviando notificación WhatsApp' });
-  }
-});
-
-// Obtener estado de WhatsApp
-app.get('/api/whatsapp/status', async (req, res) => {
-  try {
-    if (process.env.WHATSAPP_ENABLED !== 'true') {
-      return res.json({
-        enabled: false,
-        connected: false,
-        status: 'disabled',
-        message: 'WhatsApp no está habilitado en la configuración'
-      });
-    }
-    
-    if (!WhatsAppNotifier) {
-      return res.json({
-        enabled: true,
-        connected: false,
-        status: 'error',
-        message: 'Módulo WhatsApp no se pudo cargar'
-      });
-    }
-    
-    const status = await WhatsAppNotifier.getStatus();
-    res.json(status);
-  } catch (error) {
-    Logger.error('Error obteniendo estado WhatsApp:', error.message);
-    res.status(500).json({ error: 'Error obteniendo estado WhatsApp' });
+    Logger.error('Error enviando mensaje de prueba WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error enviando mensaje WhatsApp' });
   }
 });
 
@@ -517,26 +643,32 @@ app.post('/api/whatsapp/reconnect', async (req, res) => {
   }
 });
 
-// Inicializar WhatsApp (para primera vez)
-app.post('/api/whatsapp/initialize', async (req, res) => {
+// Actualizar configuración específica de WhatsApp
+app.post('/api/whatsapp/config', async (req, res) => {
   try {
-    if (process.env.WHATSAPP_ENABLED !== 'true') {
-      return res.status(400).json({ error: 'WhatsApp no está habilitado' });
+    const { recipient, respondCommands } = req.body;
+    
+    if (recipient) {
+      process.env.WHATSAPP_RECIPIENT = recipient;
+      Logger.info(`WhatsApp recipient actualizado: ${recipient}`);
     }
     
-    if (!WhatsAppNotifier) {
-      return res.status(500).json({ error: 'Módulo WhatsApp no disponible' });
+    if (respondCommands !== undefined) {
+      process.env.WHATSAPP_RESPOND_COMMANDS = respondCommands ? 'true' : 'false';
+      Logger.info(`WhatsApp respond commands: ${respondCommands}`);
     }
-    
-    await WhatsAppNotifier.initialize();
     
     res.json({
       success: true,
-      message: 'WhatsApp inicializado, escanea el código QR en la consola'
+      message: 'Configuración de WhatsApp actualizada',
+      config: {
+        recipient: process.env.WHATSAPP_RECIPIENT,
+        respondCommands: process.env.WHATSAPP_RESPOND_COMMANDS === 'true'
+      }
     });
   } catch (error) {
-    Logger.error('Error inicializando WhatsApp:', error.message);
-    res.status(500).json({ error: 'Error inicializando WhatsApp' });
+    Logger.error('Error actualizando configuración WhatsApp:', error.message);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 

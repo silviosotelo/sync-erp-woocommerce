@@ -100,6 +100,10 @@
             background: #cbd5e0;
         }
 
+        .status-indicator.connecting {
+            background: #4299e1;
+        }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.5; }
@@ -234,29 +238,6 @@
             color: white;
         }
 
-        .products-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .products-table th,
-        .products-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .products-table th {
-            background: #f7fafc;
-            font-weight: 600;
-            color: #2d3748;
-        }
-
-        .products-table tr:hover {
-            background: #f7fafc;
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -318,11 +299,6 @@
             border-color: #667eea;
         }
 
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-
         .notification {
             position: fixed;
             top: 20px;
@@ -348,22 +324,6 @@
             background: #f56565;
         }
 
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
         .whatsapp-section {
             background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
             color: white;
@@ -378,11 +338,14 @@
             padding: 20px;
             margin: 15px 0;
             text-align: center;
+            color: #333;
         }
 
         .qr-code {
             max-width: 100%;
             height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
 
         .connection-status {
@@ -403,36 +366,46 @@
             background: #48bb78;
         }
 
-        .config-section {
+        .connection-dot.connecting {
+            background: #4299e1;
+            animation: pulse 1s infinite;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .qr-instructions {
+            text-align: left;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .qr-instructions li {
+            margin-bottom: 5px;
+        }
+
+        .debug-info {
             background: #f7fafc;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 15px 0;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 20px 0;
-        }
-
-        .feature-card {
-            background: white;
-            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
             padding: 15px;
-            text-align: center;
-            border: 2px solid #e2e8f0;
-            transition: all 0.3s ease;
-        }
-
-        .feature-card.enabled {
-            border-color: #48bb78;
-            background: #f0fff4;
-        }
-
-        .feature-toggle {
-            margin-top: 10px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #4a5568;
         }
 
         @media (max-width: 768px) {
@@ -460,9 +433,8 @@
             <p>Monitoreo en tiempo real del sincronizador ERP → WooCommerce</p>
             <div style="margin-top: 20px;">
                 <button class="btn" onclick="manualSync()">🚀 Sincronizar Ahora</button>
-                <button class="btn btn-warning" onclick="showDeleteModal()">🗑️ Eliminar Producto</button>
-                <button class="btn btn-success" onclick="showRestoreModal()">♻️ Restaurar Producto</button>
-                <button class="btn" onclick="showWhatsAppModal()">📱 Configurar WhatsApp</button>
+                <button class="btn" onclick="showWhatsAppModal()">📱 Gestionar WhatsApp</button>
+                <button class="btn btn-warning" onclick="debugAPI()">🔧 Debug API</button>
             </div>
         </div>
 
@@ -512,7 +484,7 @@
                 </div>
                 <div style="margin-top: 15px;">
                     <button class="btn btn-success" onclick="testWhatsApp()" id="testWhatsAppBtn" disabled>📱 Probar</button>
-                    <button class="btn btn-warning" onclick="clearWhatsAppSession()" id="clearSessionBtn" disabled>🧹 Limpiar Sesión</button>
+                    <button class="btn btn-warning" onclick="initializeWhatsApp()" id="connectWhatsAppBtn">🔗 Conectar</button>
                 </div>
             </div>
 
@@ -539,37 +511,6 @@
                     <span class="metric-value error" id="errors">0</span>
                 </div>
             </div>
-
-            <!-- Performance -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Rendimiento</h3>
-                    <div class="status-indicator"></div>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Total Sincronizaciones</span>
-                    <span class="metric-value" id="totalSyncs">0</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Duración Promedio</span>
-                    <span class="metric-value" id="avgDuration">0 min</span>
-                </div>
-                <div class="metric">
-                    <span class="metric-label">Última Sincronización</span>
-                    <span class="metric-value" id="lastSync">Nunca</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Features Configuration -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">Configuración de Funcionalidades</h3>
-                <button class="btn" onclick="refreshFeatures()">🔄 Actualizar</button>
-            </div>
-            <div class="features-grid" id="featuresGrid">
-                <!-- Features will be loaded here -->
-            </div>
         </div>
 
         <!-- Logs Section -->
@@ -582,56 +523,13 @@
                 <div class="log-entry">Cargando logs...</div>
             </div>
         </div>
-
-        <!-- Products Management -->
-        <div class="card" style="margin-top: 20px;">
-            <div class="card-header">
-                <h3 class="card-title">Productos Eliminados Recientemente</h3>
-                <button class="btn" onclick="refreshDeletedProducts()">🔄 Actualizar</button>
-            </div>
-            <div id="deletedProductsContainer">
-                <p>Cargando productos eliminados...</p>
-            </div>
-        </div>
     </div>
 
-    <!-- Modals -->
-    <div id="deleteModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="hideDeleteModal()">&times;</span>
-            <h2>Eliminar Producto</h2>
-            <form onsubmit="deleteProduct(event)">
-                <div class="form-group">
-                    <label class="form-label">Código Interno del Producto:</label>
-                    <input type="text" class="form-input" id="deleteProductCode" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Razón de Eliminación:</label>
-                    <input type="text" class="form-input" id="deleteReason" placeholder="Opcional">
-                </div>
-                <button type="submit" class="btn btn-danger">🗑️ Eliminar Producto</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="restoreModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="hideRestoreModal()">&times;</span>
-            <h2>Restaurar Producto</h2>
-            <form onsubmit="restoreProduct(event)">
-                <div class="form-group">
-                    <label class="form-label">Código Interno del Producto:</label>
-                    <input type="text" class="form-input" id="restoreProductCode" required>
-                </div>
-                <button type="submit" class="btn btn-success">♻️ Restaurar Producto</button>
-            </form>
-        </div>
-    </div>
-
+    <!-- WhatsApp Modal -->
     <div id="whatsappModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="hideWhatsAppModal()">&times;</span>
-            <h2>📱 Configuración de WhatsApp</h2>
+            <h2>📱 Gestión de WhatsApp</h2>
             
             <div class="whatsapp-section">
                 <h3>Estado de la Conexión</h3>
@@ -643,46 +541,52 @@
                 <div id="qrSection" style="display: none;">
                     <h4>Escanea el código QR:</h4>
                     <div class="qr-container">
-                        <div id="qrCode">Generando código QR...</div>
-                        <p>1. Abre WhatsApp en tu teléfono</p>
-                        <p>2. Ve a Configuración > Dispositivos vinculados</p>
-                        <p>3. Escanea este código QR</p>
+                        <div id="qrCode">
+                            <div class="loading-spinner"></div>
+                            <p>Generando código QR...</p>
+                        </div>
+                        <div class="qr-instructions">
+                            <strong>Instrucciones:</strong>
+                            <ol>
+                                <li>Abre WhatsApp en tu teléfono</li>
+                                <li>Ve a <strong>Configuración > Dispositivos vinculados</strong></li>
+                                <li>Toca <strong>"Vincular dispositivo"</strong></li>
+                                <li>Escanea este código QR</li>
+                                <li>Espera la confirmación de conexión</li>
+                            </ol>
+                        </div>
                     </div>
+                </div>
+
+                <div id="connectionSuccess" style="display: none;">
+                    <h4>✅ ¡WhatsApp Conectado!</h4>
+                    <p>Tu dispositivo está vinculado correctamente. Ya puedes recibir notificaciones.</p>
+                </div>
+
+                <div id="debugSection" class="debug-info" style="display: none;">
+                    <strong>Debug Info:</strong>
+                    <div id="debugInfo"></div>
                 </div>
             </div>
 
-            <div class="config-section">
-                <h3>Configuración</h3>
-                <form onsubmit="updateWhatsAppConfig(event)">
-                    <div class="form-group">
-                        <label class="form-label">Habilitar WhatsApp:</label>
-                        <input type="checkbox" id="whatsappEnabled" onchange="toggleWhatsApp()">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Número de Destinatario:</label>
-                        <input type="text" class="form-input" id="whatsappRecipientInput" placeholder="+595981234567">
-                        <small>Incluir código de país (ej: +595981234567)</small>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Responder a comandos:</label>
-                        <input type="checkbox" id="whatsappCommands">
-                    </div>
-                    <button type="submit" class="btn">💾 Guardar Configuración</button>
-                </form>
-            </div>
-
             <div style="margin-top: 20px;">
-                <button class="btn btn-success" onclick="testWhatsAppFromModal()">📱 Enviar Prueba</button>
+                <button class="btn btn-success" onclick="initializeWhatsAppFromModal()">🔗 Nueva Conexión</button>
+                <button class="btn" onclick="testWhatsAppFromModal()">📱 Enviar Prueba</button>
                 <button class="btn btn-warning" onclick="clearSessionFromModal()">🧹 Limpiar Sesión</button>
                 <button class="btn btn-danger" onclick="disconnectWhatsApp()">🔌 Desconectar</button>
+                <button class="btn" onclick="refreshQR()">🔄 Actualizar QR</button>
             </div>
         </div>
     </div>
 
     <script>
-        const API_BASE = window.location.origin + '/api';
+        // *** CORREGIDO: URL del API ***
+        const API_BASE = window.location.origin + window.location.pathname + 'api';
         let refreshInterval;
         let whatsappRefreshInterval;
+        let whatsappEventSource;
+
+        console.log('API_BASE configurado como:', API_BASE);
 
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
@@ -697,15 +601,123 @@
 
         function startWhatsAppMonitoring() {
             whatsappRefreshInterval = setInterval(updateWhatsAppStatus, 10000); // 10 seconds
+            
+            // Iniciar Server-Sent Events para actualizaciones en tiempo real
+            if (typeof(EventSource) !== "undefined") {
+                connectToWhatsAppEvents();
+            } else {
+                console.warn('EventSource not supported, falling back to polling');
+            }
+        }
+
+        function connectToWhatsAppEvents() {
+            if (whatsappEventSource) {
+                whatsappEventSource.close();
+            }
+
+            console.log('Conectando a WhatsApp events:', `${API_BASE}/whatsapp/events`);
+            
+            whatsappEventSource = new EventSource(`${API_BASE}/whatsapp/events`);
+            
+            whatsappEventSource.onopen = function(event) {
+                console.log('WhatsApp EventSource conectado');
+            };
+            
+            whatsappEventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    console.log('WhatsApp event received:', data);
+                    handleWhatsAppEvent(data);
+                } catch (error) {
+                    console.error('Error parsing WhatsApp event:', error);
+                }
+            };
+
+            whatsappEventSource.onerror = function(event) {
+                console.error('WhatsApp EventSource error:', event);
+                // Reconectar después de 5 segundos
+                setTimeout(() => {
+                    console.log('Intentando reconectar EventSource...');
+                    connectToWhatsAppEvents();
+                }, 5000);
+            };
+        }
+
+        function handleWhatsAppEvent(event) {
+            console.log('Handling WhatsApp event:', event.type, event.data);
+            
+            switch (event.type) {
+                case 'qr':
+                    console.log('QR recibido:', event.data.qr ? 'SÍ' : 'NO');
+                    if (event.data && event.data.qr) {
+                        showQRCode(event.data.qr);
+                    }
+                    break;
+                case 'status_update':
+                    console.log('Status update:', event.data);
+                    updateWhatsAppUI(event.data);
+                    break;
+                case 'status':
+                    updateWhatsAppStatus();
+                    break;
+                case 'heartbeat':
+                    // Silently handle heartbeat
+                    break;
+                default:
+                    console.log('Unknown event type:', event.type);
+            }
+        }
+
+        function showQRCode(qrDataURL) {
+            console.log('Mostrando QR code:', qrDataURL ? 'SÍ' : 'NO');
+            
+            const qrSection = document.getElementById('qrSection');
+            const qrCode = document.getElementById('qrCode');
+            const connectionSuccess = document.getElementById('connectionSuccess');
+            
+            if (qrDataURL) {
+                qrCode.innerHTML = `<img src="${qrDataURL}" alt="QR Code" class="qr-code">`;
+                qrSection.style.display = 'block';
+                connectionSuccess.style.display = 'none';
+                console.log('QR code actualizado en DOM');
+            } else {
+                console.warn('QR data URL is empty');
+            }
+        }
+
+        function updateWhatsAppUI(statusData) {
+            console.log('Actualizando UI con:', statusData);
+            
+            const modalStatus = document.getElementById('modalWhatsappStatus');
+            const modalDot = document.getElementById('modalWhatsappDot');
+            const qrSection = document.getElementById('qrSection');
+            const connectionSuccess = document.getElementById('connectionSuccess');
+            
+            if (modalStatus) {
+                modalStatus.textContent = statusData.message;
+            }
+            
+            if (modalDot) {
+                modalDot.className = 'connection-dot';
+                if (statusData.status === 'connected') {
+                    modalDot.classList.add('connected');
+                    qrSection.style.display = 'none';
+                    connectionSuccess.style.display = 'block';
+                } else if (statusData.status === 'connecting' || statusData.status === 'qr_ready') {
+                    modalDot.classList.add('connecting');
+                    if (statusData.status === 'qr_ready') {
+                        // El QR debería llegar por separado en un evento 'qr'
+                        console.log('Estado QR ready, esperando QR...');
+                    }
+                }
+            }
         }
 
         async function loadDashboard() {
             await Promise.all([
                 loadSystemStatus(),
                 loadStats(),
-                loadLogs(),
-                loadDeletedProducts(),
-                loadFeatures()
+                loadLogs()
             ]);
         }
 
@@ -746,15 +758,6 @@
                     document.getElementById('productsUpdated').textContent = data.summary.total_updated || 0;
                     document.getElementById('productsDeleted').textContent = data.summary.total_deleted || 0;
                     document.getElementById('errors').textContent = data.summary.total_errors || 0;
-                    document.getElementById('totalSyncs').textContent = data.summary.total_syncs || 0;
-                    
-                    const avgMin = Math.round((data.summary.avg_duration || 0) / 60000 * 100) / 100;
-                    document.getElementById('avgDuration').textContent = `${avgMin} min`;
-                }
-                
-                if (data.recent && data.recent.length > 0) {
-                    const lastSyncDate = new Date(data.recent[0].created_at);
-                    document.getElementById('lastSync').textContent = lastSyncDate.toLocaleString('es-PY');
                 }
                 
             } catch (error) {
@@ -768,12 +771,16 @@
                 const response = await fetch(`${API_BASE}/whatsapp/status`);
                 const data = await response.json();
                 
+                console.log('WhatsApp status response:', data);
+                
                 // Update main dashboard
                 const indicator = document.getElementById('whatsappIndicator');
                 const dot = document.getElementById('whatsappDot');
                 const status = document.getElementById('whatsappStatus');
                 const recipient = document.getElementById('whatsappRecipient');
                 const connectionText = document.getElementById('whatsappConnectionText');
+                const testBtn = document.getElementById('testWhatsAppBtn');
+                const connectBtn = document.getElementById('connectWhatsAppBtn');
                 
                 if (data.enabled) {
                     if (data.connected) {
@@ -782,21 +789,35 @@
                         status.textContent = 'Conectado';
                         status.className = 'metric-value success';
                         connectionText.textContent = 'WhatsApp conectado y listo';
-                        
-                        document.getElementById('testWhatsAppBtn').disabled = false;
-                        document.getElementById('clearSessionBtn').disabled = false;
+                        testBtn.disabled = false;
+                        connectBtn.textContent = '🔄 Reconectar';
+                    } else if (data.connecting) {
+                        indicator.className = 'status-indicator connecting';
+                        dot.className = 'connection-dot connecting';
+                        status.textContent = 'Conectando';
+                        status.className = 'metric-value warning';
+                        connectionText.textContent = 'WhatsApp conectando...';
+                        testBtn.disabled = true;
+                        connectBtn.textContent = '⏳ Conectando...';
+                        connectBtn.disabled = true;
                     } else {
                         indicator.className = 'status-indicator warning';
                         dot.className = 'connection-dot';
                         status.textContent = 'Desconectado';
                         status.className = 'metric-value warning';
                         connectionText.textContent = 'WhatsApp habilitado pero desconectado';
-                        
-                        document.getElementById('testWhatsAppBtn').disabled = true;
-                        document.getElementById('clearSessionBtn').disabled = false;
+                        testBtn.disabled = true;
+                        connectBtn.textContent = '🔗 Conectar';
+                        connectBtn.disabled = false;
                     }
                     
                     recipient.textContent = data.recipient || 'No configurado';
+                    
+                    // Si hay QR disponible, mostrarlo
+                    if (data.hasQR && data.qrImage) {
+                        console.log('QR disponible en status, mostrando...');
+                        showQRCode(data.qrImage);
+                    }
                 } else {
                     indicator.className = 'status-indicator disconnected';
                     dot.className = 'connection-dot';
@@ -804,9 +825,8 @@
                     status.className = 'metric-value';
                     connectionText.textContent = 'WhatsApp no está habilitado';
                     recipient.textContent = 'No configurado';
-                    
-                    document.getElementById('testWhatsAppBtn').disabled = true;
-                    document.getElementById('clearSessionBtn').disabled = true;
+                    testBtn.disabled = true;
+                    connectBtn.disabled = true;
                 }
                 
                 // Update modal if open
@@ -820,46 +840,6 @@
                 
             } catch (error) {
                 console.error('Error loading WhatsApp status:', error);
-            }
-        }
-
-        async function loadFeatures() {
-            try {
-                const response = await fetch(`${API_BASE}/config`);
-                const data = await response.json();
-                
-                const featuresGrid = document.getElementById('featuresGrid');
-                const features = data.config.features;
-                
-                featuresGrid.innerHTML = Object.entries(features).map(([key, enabled]) => {
-                    const featureNames = {
-                        multiInventory: 'Multi-Inventario',
-                        whatsapp: 'WhatsApp',
-                        email: 'Email',
-                        sms: 'SMS',
-                        webhooks: 'Webhooks',
-                        autoSync: 'Auto-Sync',
-                        backup: 'Backup'
-                    };
-                    
-                    return `
-                        <div class="feature-card ${enabled ? 'enabled' : ''}">
-                            <h4>${featureNames[key] || key}</h4>
-                            <div class="metric-value ${enabled ? 'success' : 'error'}">
-                                ${enabled ? 'Habilitado' : 'Deshabilitado'}
-                            </div>
-                            <div class="feature-toggle">
-                                <button class="btn ${enabled ? 'btn-warning' : 'btn-success'}" 
-                                        onclick="toggleFeature('${key}', ${!enabled})">
-                                    ${enabled ? 'Deshabilitar' : 'Habilitar'}
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-            } catch (error) {
-                console.error('Error loading features:', error);
             }
         }
 
@@ -893,164 +873,104 @@
             }
         }
 
-        async function loadDeletedProducts() {
-            try {
-                const response = await fetch(`${API_BASE}/products/deleted`);
-                const data = await response.json();
-                
-                const container = document.getElementById('deletedProductsContainer');
-                
-                if (data.products && data.products.length > 0) {
-                    container.innerHTML = `
-                        <table class="products-table">
-                            <thead>
-                                <tr>
-                                    <th>Código Interno</th>
-                                    <th>Título</th>
-                                    <th>Fecha Eliminación</th>
-                                    <th>Razón</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.products.map(product => `
-                                    <tr>
-                                        <td>${product.cod_interno}</td>
-                                        <td>${product.post_title}</td>
-                                        <td>${new Date(product.deletion_date || product.post_modified).toLocaleDateString('es-PY')}</td>
-                                        <td>${product.deletion_reason || 'No especificada'}</td>
-                                        <td>
-                                            <button class="btn btn-success" onclick="quickRestore('${product.cod_interno}')">
-                                                Restaurar
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    `;
-                } else {
-                    container.innerHTML = '<p>No hay productos eliminados recientemente</p>';
-                }
-                
-            } catch (error) {
-                console.error('Error loading deleted products:', error);
-                showNotification('Error cargando productos eliminados', 'error');
-            }
-        }
-
         // WhatsApp Functions
         async function showWhatsAppModal() {
             document.getElementById('whatsappModal').style.display = 'block';
-            await loadWhatsAppConfig();
             await updateWhatsAppStatus();
+            // Verificar si hay QR disponible
+            await refreshQR();
         }
 
         function hideWhatsAppModal() {
             document.getElementById('whatsappModal').style.display = 'none';
         }
 
-        async function loadWhatsAppConfig() {
+        async function initializeWhatsApp() {
             try {
-                const response = await fetch(`${API_BASE}/config`);
+                showNotification('Inicializando WhatsApp...', 'success');
+                console.log('Inicializando WhatsApp...');
+                
+                const response = await fetch(`${API_BASE}/whatsapp/initialize`, { method: 'POST' });
                 const data = await response.json();
                 
-                document.getElementById('whatsappEnabled').checked = data.config.features.whatsapp;
-                // Load current recipient if available
-                // This would need to be added to the config endpoint
-                
-            } catch (error) {
-                console.error('Error loading WhatsApp config:', error);
-            }
-        }
-
-        async function updateWhatsAppConfig(event) {
-            event.preventDefault();
-            
-            const enabled = document.getElementById('whatsappEnabled').checked;
-            const recipient = document.getElementById('whatsappRecipientInput').value;
-            const commands = document.getElementById('whatsappCommands').checked;
-            
-            try {
-                // Update main feature toggle
-                await toggleFeature('WHATSAPP_ENABLED', enabled);
-                
-                // TODO: Add endpoint to update recipient and commands
-                showNotification('Configuración de WhatsApp actualizada', 'success');
-                
-            } catch (error) {
-                console.error('Error updating WhatsApp config:', error);
-                showNotification('Error actualizando configuración', 'error');
-            }
-        }
-
-        async function testWhatsAppFromModal() {
-            await testWhatsApp();
-        }
-
-        async function clearSessionFromModal() {
-            await clearWhatsAppSession();
-        }
-
-        async function disconnectWhatsApp() {
-            try {
-                const response = await fetch(`${API_BASE}/whatsapp/disconnect`, { method: 'POST' });
-                const data = await response.json();
+                console.log('Initialize response:', data);
                 
                 if (data.success) {
-                    showNotification('WhatsApp desconectado', 'success');
-                    await updateWhatsAppStatus();
+                    showNotification('WhatsApp inicializado. Esperando QR...', 'success');
+                    // Open modal to show QR
+                    showWhatsAppModal();
+                    
+                    // Esperar un poco y luego intentar obtener QR
+                    setTimeout(refreshQR, 2000);
                 } else {
-                    showNotification('Error desconectando WhatsApp', 'error');
+                    showNotification('Error inicializando WhatsApp', 'error');
                 }
             } catch (error) {
-                console.error('Error disconnecting WhatsApp:', error);
-                showNotification('Error desconectando WhatsApp', 'error');
+                console.error('Error initializing WhatsApp:', error);
+                showNotification('Error inicializando WhatsApp', 'error');
             }
         }
 
-        async function toggleFeature(feature, enabled) {
+        async function refreshQR() {
             try {
-                const response = await fetch(`${API_BASE}/config/update`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ feature, enabled })
-                });
+                console.log('Obteniendo QR...');
+                const response = await fetch(`${API_BASE}/whatsapp/qr`);
                 
-                const data = await response.json();
-                
-                if (data.success) {
-                    showNotification(data.message, 'success');
-                    loadFeatures();
-                    if (feature === 'WHATSAPP_ENABLED') {
-                        updateWhatsAppStatus();
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('QR response:', data);
+                    
+                    if (data.success && data.qr) {
+                        showQRCode(data.qr);
+                    } else {
+                        console.log('No hay QR disponible');
+                        const qrSection = document.getElementById('qrSection');
+                        qrSection.style.display = 'none';
                     }
                 } else {
-                    showNotification('Error actualizando configuración', 'error');
+                    console.log('QR no disponible, status:', response.status);
                 }
             } catch (error) {
-                console.error('Error toggling feature:', error);
-                showNotification('Error actualizando configuración', 'error');
+                console.error('Error obteniendo QR:', error);
             }
         }
 
-        // Existing functions (manualSync, deleteProduct, etc.)
-        async function manualSync() {
+        async function debugAPI() {
             try {
-                showNotification('Iniciando sincronización manual...', 'success');
-                const response = await fetch(`${API_BASE}/sync/start`, { method: 'POST' });
-                const data = await response.json();
+                console.log('=== DEBUG API ===');
                 
-                if (data.success) {
-                    showNotification('Sincronización iniciada exitosamente', 'success');
-                    setTimeout(loadDashboard, 2000);
-                } else {
-                    showNotification('Error iniciando sincronización', 'error');
+                // Test basic connectivity
+                const statusResponse = await fetch(`${API_BASE}/whatsapp/status`);
+                console.log('Status response:', await statusResponse.json());
+                
+                // Test QR endpoint
+                const qrResponse = await fetch(`${API_BASE}/whatsapp/qr`);
+                console.log('QR response status:', qrResponse.status);
+                if (qrResponse.ok) {
+                    console.log('QR response:', await qrResponse.json());
                 }
+                
+                const debugSection = document.getElementById('debugSection');
+                const debugInfo = document.getElementById('debugInfo');
+                
+                debugInfo.innerHTML = `
+                    API Base: ${API_BASE}<br>
+                    Status Response: ${statusResponse.status}<br>
+                    QR Response: ${qrResponse.status}<br>
+                    EventSource Support: ${typeof(EventSource) !== "undefined"}<br>
+                    Current Time: ${new Date().toLocaleString()}
+                `;
+                
+                debugSection.style.display = 'block';
+                showWhatsAppModal();
+                
             } catch (error) {
-                console.error('Error starting manual sync:', error);
-                showNotification('Error iniciando sincronización', 'error');
+                console.error('Error in debug:', error);
             }
+        }
+
+        async function initializeWhatsAppFromModal() {
+            await initializeWhatsApp();
         }
 
         async function testWhatsApp() {
@@ -1073,7 +993,11 @@
             }
         }
 
-        async function clearWhatsAppSession() {
+        async function testWhatsAppFromModal() {
+            await testWhatsApp();
+        }
+
+        async function clearSessionFromModal() {
             try {
                 const response = await fetch(`${API_BASE}/whatsapp/clear-session`, { method: 'POST' });
                 const data = await response.json();
@@ -1081,6 +1005,7 @@
                 if (data.success) {
                     showNotification('Sesión WhatsApp limpiada', 'success');
                     await updateWhatsAppStatus();
+                    hideWhatsAppModal();
                 } else {
                     showNotification('Error limpiando sesión WhatsApp', 'error');
                 }
@@ -1090,110 +1015,44 @@
             }
         }
 
-        async function deleteProduct(event) {
-            event.preventDefault();
-            const code = document.getElementById('deleteProductCode').value;
-            const reason = document.getElementById('deleteReason').value;
-            
+        async function disconnectWhatsApp() {
             try {
-                const response = await fetch(`${API_BASE}/products/delete`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codInterno: code, reason })
-                });
-                
+                const response = await fetch(`${API_BASE}/whatsapp/disconnect`, { method: 'POST' });
                 const data = await response.json();
                 
                 if (data.success) {
-                    showNotification('Producto eliminado exitosamente', 'success');
-                    hideDeleteModal();
-                    loadDeletedProducts();
+                    showNotification('WhatsApp desconectado', 'success');
+                    await updateWhatsAppStatus();
                 } else {
-                    showNotification(data.error || 'Error eliminando producto', 'error');
+                    showNotification('Error desconectando WhatsApp', 'error');
                 }
             } catch (error) {
-                console.error('Error deleting product:', error);
-                showNotification('Error eliminando producto', 'error');
+                console.error('Error disconnecting WhatsApp:', error);
+                showNotification('Error desconectando WhatsApp', 'error');
             }
         }
 
-        async function restoreProduct(event) {
-            event.preventDefault();
-            const code = document.getElementById('restoreProductCode').value;
-            
+        // Existing functions
+        async function manualSync() {
             try {
-                const response = await fetch(`${API_BASE}/products/restore`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codInterno: code })
-                });
-                
+                showNotification('Iniciando sincronización manual...', 'success');
+                const response = await fetch(`${API_BASE}/sync/start`, { method: 'POST' });
                 const data = await response.json();
                 
                 if (data.success) {
-                    showNotification('Producto restaurado exitosamente', 'success');
-                    hideRestoreModal();
-                    loadDeletedProducts();
+                    showNotification('Sincronización iniciada exitosamente', 'success');
+                    setTimeout(loadDashboard, 2000);
                 } else {
-                    showNotification(data.error || 'Error restaurando producto', 'error');
+                    showNotification('Error iniciando sincronización', 'error');
                 }
             } catch (error) {
-                console.error('Error restoring product:', error);
-                showNotification('Error restaurando producto', 'error');
+                console.error('Error starting manual sync:', error);
+                showNotification('Error iniciando sincronización', 'error');
             }
-        }
-
-        async function quickRestore(codInterno) {
-            try {
-                const response = await fetch(`${API_BASE}/products/restore`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ codInterno })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showNotification('Producto restaurado exitosamente', 'success');
-                    loadDeletedProducts();
-                } else {
-                    showNotification(data.error || 'Error restaurando producto', 'error');
-                }
-            } catch (error) {
-                console.error('Error restoring product:', error);
-                showNotification('Error restaurando producto', 'error');
-            }
-        }
-
-        function showDeleteModal() {
-            document.getElementById('deleteModal').style.display = 'block';
-        }
-
-        function hideDeleteModal() {
-            document.getElementById('deleteModal').style.display = 'none';
-            document.getElementById('deleteProductCode').value = '';
-            document.getElementById('deleteReason').value = '';
-        }
-
-        function showRestoreModal() {
-            document.getElementById('restoreModal').style.display = 'block';
-        }
-
-        function hideRestoreModal() {
-            document.getElementById('restoreModal').style.display = 'none';
-            document.getElementById('restoreProductCode').value = '';
         }
 
         function refreshLogs() {
             loadLogs();
-        }
-
-        function refreshDeletedProducts() {
-            loadDeletedProducts();
-        }
-
-        function refreshFeatures() {
-            loadFeatures();
         }
 
         function showNotification(message, type) {
@@ -1215,13 +1074,10 @@
 
         // Close modals when clicking outside
         window.onclick = function(event) {
-            const modals = ['deleteModal', 'restoreModal', 'whatsappModal'];
-            modals.forEach(modalId => {
-                const modal = document.getElementById(modalId);
-                if (event.target === modal) {
-                    modal.style.display = 'none';
-                }
-            });
+            const modal = document.getElementById('whatsappModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
         }
     </script>
 </body>

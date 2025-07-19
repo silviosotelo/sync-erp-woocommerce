@@ -1,7 +1,6 @@
 /**
  * modules/whatsapp-notifier.js
- * Módulo de notificaciones WhatsApp usando @whiskeysockets/baileys
- * Configuración modular para el Sincronizador ERP
+ * Módulo de notificaciones WhatsApp con soporte para QR en dashboard
  */
 
 const fs = require('fs');
@@ -13,10 +12,14 @@ class WhatsAppNotifier {
     constructor() {
         this.sock = null;
         this.isConnected = false;
+        this.isConnecting = false;
         this.authDir = path.join(__dirname, '..', 'tmp', 'whatsapp-auth');
         this.recipientNumber = process.env.WHATSAPP_RECIPIENT || null;
         this.maxRetries = 3;
         this.reconnectAttempts = 0;
+        this.currentQR = null;
+        this.qrUpdateCallbacks = new Set();
+        this.statusUpdateCallbacks = new Set();
         
         // Crear directorio de autenticación si no existe
         if (!fs.existsSync(this.authDir)) {
@@ -24,9 +27,51 @@ class WhatsAppNotifier {
         }
     }
 
+    // Método para registrar callbacks de actualización de QR
+    onQRUpdate(callback) {
+        this.qrUpdateCallbacks.add(callback);
+        return () => this.qrUpdateCallbacks.delete(callback);
+    }
+
+    // Método para registrar callbacks de actualización de estado
+    onStatusUpdate(callback) {
+        this.statusUpdateCallbacks.add(callback);
+        return () => this.statusUpdateCallbacks.delete(callback);
+    }
+
+    // Notificar a todos los callbacks sobre cambios de QR
+    notifyQRUpdate(qr) {
+        this.currentQR = qr;
+        this.qrUpdateCallbacks.forEach(callback => {
+            try {
+                callback(qr);
+            } catch (error) {
+                console.error('Error en QR callback:', error);
+            }
+        });
+    }
+
+    // Notificar a todos los callbacks sobre cambios de estado
+    notifyStatusUpdate(status) {
+        this.statusUpdateCallbacks.forEach(callback => {
+            try {
+                callback(status);
+            } catch (error) {
+                console.error('Error en status callback:', error);
+            }
+        });
+    }
+
     async initialize() {
         try {
+            if (this.isConnecting) {
+                console.log('⚠️ WhatsApp ya se está inicializando...');
+                return;
+            }
+
             console.log('📱 Inicializando WhatsApp...');
+            this.isConnecting = true;
+            this.notifyStatusUpdate({ status: 'connecting', message: 'Inicializando WhatsApp...' });
             
             if (!this.recipientNumber) {
                 throw new Error('WHATSAPP_RECIPIENT no configurado en .env');
@@ -39,9 +84,7 @@ class WhatsAppNotifier {
             this.sock = makeWASocket({
                 auth: state,
                 logger: this.createLogger(),
-                browser: ['Sincronizador ERP', 'Chrome', '1.0.0'],
-                // Removido printQRInTerminal ya que está deprecado
-                // El QR se maneja ahora en connection.update
+                browser: ['Sincronizador ERP', 'Chrome', '1.0.0']
             });
             
             // Configurar eventos
@@ -50,7 +93,9 @@ class WhatsAppNotifier {
             console.log('✅ WhatsApp inicializado - Esperando conexión...');
             
         } catch (error) {
+            this.isConnecting = false;
             console.error('❌ Error inicializando WhatsApp:', error.message);
+            this.notifyStatusUpdate({ status: 'error', message: error.message });
             throw error;
         }
     }
@@ -64,18 +109,17 @@ class WhatsAppNotifier {
             const { connection, lastDisconnect, qr } = update;
             
             if (qr) {
-                console.log('\n📱 CÓDIGO QR PARA WHATSAPP:');
-                console.log('   1. Abre WhatsApp en tu teléfono');
-                console.log('   2. Ve a Configuración > Dispositivos vinculados');
-                console.log('   3. Escanea el código QR que aparece arriba');
-                console.log('   4. Espera la confirmación de conexión\n');
-                
-                // Aquí podrías agregar lógica para mostrar el QR de otra manera
-                // Por ejemplo, guardarlo como imagen o enviarlo por email
-                this.handleQRCode(qr);
+                console.log('📱 QR Code generado para WhatsApp');
+                this.notifyQRUpdate(qr);
+                this.notifyStatusUpdate({ 
+                    status: 'qr_ready', 
+                    message: 'Escanea el código QR con tu WhatsApp',
+                    qr: qr 
+                });
             }
             
             if (connection === 'close') {
+                this.isConnecting = false;
                 let shouldReconnect = false;
                 
                 if (lastDisconnect && lastDisconnect.error) {
@@ -92,13 +136,22 @@ class WhatsAppNotifier {
                 
                 console.log('📱 WhatsApp desconectado:', lastDisconnect?.error?.message || 'Razón desconocida');
                 this.isConnected = false;
+                this.currentQR = null;
                 
                 if (shouldReconnect && this.reconnectAttempts < this.maxRetries) {
                     this.reconnectAttempts++;
                     console.log(`🔄 Reintentando conexión WhatsApp (${this.reconnectAttempts}/${this.maxRetries})...`);
+                    this.notifyStatusUpdate({ 
+                        status: 'reconnecting', 
+                        message: `Reintentando conexión... (${this.reconnectAttempts}/${this.maxRetries})` 
+                    });
                     setTimeout(() => this.initialize(), 5000);
                 } else {
                     console.log('❌ WhatsApp: Máximo de reintentos alcanzado o sesión cerrada');
+                    this.notifyStatusUpdate({ 
+                        status: 'disconnected', 
+                        message: 'Máximo de reintentos alcanzado o sesión cerrada' 
+                    });
                     if (lastDisconnect?.error) {
                         console.log('❌ Detalles del error:', lastDisconnect.error.message);
                     }
@@ -106,7 +159,14 @@ class WhatsAppNotifier {
             } else if (connection === 'open') {
                 console.log('✅ WhatsApp conectado exitosamente');
                 this.isConnected = true;
+                this.isConnecting = false;
                 this.reconnectAttempts = 0;
+                this.currentQR = null;
+                
+                this.notifyStatusUpdate({ 
+                    status: 'connected', 
+                    message: 'WhatsApp conectado exitosamente' 
+                });
                 
                 // Enviar mensaje de confirmación
                 this.sendNotification('🎉 Sincronizador ERP conectado a WhatsApp\n\nSistema listo para enviar notificaciones.')
@@ -120,24 +180,6 @@ class WhatsAppNotifier {
                 await this.handleIncomingMessage(m);
             }
         });
-    }
-
-    // Método para manejar el QR code de manera personalizada
-    handleQRCode(qr) {
-        try {
-            // Podrías usar una librería como 'qrcode' para generar una imagen
-            // const QRCode = require('qrcode');
-            // QRCode.toFile('./qr.png', qr);
-            
-            // Por ahora solo logueamos que está disponible
-            console.log('📱 QR Code disponible para WhatsApp');
-            
-            // Si tienes configurado email, podrías enviar el QR por correo
-            // this.sendQRByEmail(qr);
-            
-        } catch (error) {
-            console.error('❌ Error manejando QR code:', error.message);
-        }
     }
 
     async handleIncomingMessage(messageUpdate) {
@@ -351,16 +393,21 @@ class WhatsAppNotifier {
             return {
                 enabled: true,
                 connected: this.isConnected,
-                status: this.isConnected ? 'connected' : 'disconnected',
+                connecting: this.isConnecting,
+                status: this.isConnected ? 'connected' : (this.isConnecting ? 'connecting' : 'disconnected'),
                 recipient: this.recipientNumber ? `${this.recipientNumber.substring(0, 3)}***${this.recipientNumber.slice(-2)}` : null,
                 reconnectAttempts: this.reconnectAttempts,
                 maxRetries: this.maxRetries,
-                message: this.isConnected ? 'WhatsApp conectado y listo' : 'WhatsApp desconectado'
+                hasQR: !!this.currentQR,
+                qr: this.currentQR,
+                message: this.isConnected ? 'WhatsApp conectado y listo' : 
+                        (this.isConnecting ? 'Conectando a WhatsApp...' : 'WhatsApp desconectado')
             };
         } catch (error) {
             return {
                 enabled: true,
                 connected: false,
+                connecting: false,
                 status: 'error',
                 message: error.message
             };
@@ -374,6 +421,9 @@ class WhatsAppNotifier {
                 await this.sock.logout();
                 this.sock = null;
                 this.isConnected = false;
+                this.isConnecting = false;
+                this.currentQR = null;
+                this.notifyStatusUpdate({ status: 'disconnected', message: 'WhatsApp desconectado' });
                 console.log('✅ WhatsApp desconectado');
             }
         } catch (error) {
@@ -393,10 +443,35 @@ class WhatsAppNotifier {
             
             // Recrear directorio
             fs.mkdirSync(this.authDir, { recursive: true });
+            this.notifyStatusUpdate({ status: 'session_cleared', message: 'Sesión limpiada, listo para nueva conexión' });
             
         } catch (error) {
             console.error('❌ Error limpiando sesión WhatsApp:', error.message);
             throw error;
+        }
+    }
+
+    // Método para obtener QR como data URL para mostrar en el dashboard
+    async getQRDataURL() {
+        if (!this.currentQR) {
+            return null;
+        }
+
+        try {
+            // Usar qrcode para generar imagen base64
+            const QRCode = require('qrcode');
+            const qrDataURL = await QRCode.toDataURL(this.currentQR, {
+                width: 300,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            });
+            return qrDataURL;
+        } catch (error) {
+            console.error('Error generando QR data URL:', error.message);
+            return null;
         }
     }
 }
@@ -410,6 +485,10 @@ module.exports = {
             whatsappInstance = new WhatsAppNotifier();
             await whatsappInstance.initialize();
         }
+        return whatsappInstance;
+    },
+    
+    getInstance() {
         return whatsappInstance;
     },
     
@@ -436,6 +515,7 @@ module.exports = {
             return {
                 enabled: false,
                 connected: false,
+                connecting: false,
                 status: 'not_initialized',
                 message: 'WhatsApp no inicializado'
             };
