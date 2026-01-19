@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "start": "node start.js",
+    "start:v2": "node server-v2.js",
     "dev": "node start.js --dev",
+    "dev:v2": "nodemon server-v2.js",
     "test": "node test-sync.js",
     "test:quick": "node test-sync.js --quick",
     "sync": "node sync-enhanced.js",
@@ -38,9 +40,9 @@
     "pm2:restart": "pm2 restart sync-erp-woocommerce",
     "pm2:logs": "pm2 logs sync-erp-woocommerce",
     "pm2:status": "pm2 status",
-    "postinstall": "node -e \"console.log('\\n🎉 Instalación completada!\\n📋 Siguiente paso: npm run setup\\n🚀 Luego ejecuta: npm start\\n📱 Para WhatsApp: npm run setup:whatsapp\\n')\"",
+    "postinstall": "node -e \"console.log('\\n🎉 Instalación completada!\\n📋 Siguiente paso: npm run setup\\n🚀 Sistema v2: npm run start:v2\\n📱 Para WhatsApp: npm run setup:whatsapp\\n')\"",
     "prestart": "node -e \"const path = require('path'); const fs = require('fs'); const envPath = path.join(process.cwd(), '.env'); if (!fs.existsSync(envPath)) { console.log('⚠️ Archivo .env no encontrado en:', envPath); console.log('📝 Ejecuta: npm run setup'); process.exit(1); }\"",
-    "prepare": "node -e \"['logs','backups','tmp','modules'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
+    "prepare": "node -e \"['logs','backups','tmp','modules','data','reports','reports/csv','reports/daily'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
   },
   "keywords": [
     "woocommerce",
@@ -76,6 +78,7 @@
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^9.2.2",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -87,13 +90,17 @@
     "moment": "^2.29.4",
     "multer": "^1.4.5-lts.1",
     "mysql": "^2.18.1",
+    "mysql2": "^3.6.5",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.9.7",
     "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
     "sharp": "^0.32.6",
+    "socket.io": "^4.6.1",
     "twilio": "^4.20.0",
-    "winston": "^3.11.0"
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
