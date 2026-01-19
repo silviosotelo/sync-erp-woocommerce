@@ -1,5 +1,5 @@
-const mysql = require('mysql');
 const util = require('util');
+const MySQLConnection = require('../database/mysql-connection');
 
 class QueueProcessor {
   constructor(mysqlConfig, queue, logger) {
@@ -8,14 +8,13 @@ class QueueProcessor {
     this.maxRetries = parseInt(process.env.MAX_RETRY_ATTEMPTS) || 3;
     this.timeoutMs = parseInt(process.env.PROCESSING_TIMEOUT_MS) || 30000;
 
-    this.pool = mysql.createPool({
-      ...mysqlConfig,
-      connectionLimit: 10,
-      waitForConnections: true,
-      queueLimit: 0
-    });
-
+    this.mysqlConnection = new MySQLConnection(mysqlConfig, logger);
+    this.pool = this.mysqlConnection.getPool();
     this.query = util.promisify(this.pool.query).bind(this.pool);
+  }
+
+  async initialize() {
+    await this.mysqlConnection.testConnection();
   }
 
   async processWithRetry(queueItem) {
@@ -267,13 +266,10 @@ class QueueProcessor {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  close() {
-    return new Promise((resolve, reject) => {
-      this.pool.end((err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+  async close() {
+    if (this.mysqlConnection) {
+      await this.mysqlConnection.close();
+    }
   }
 }
 

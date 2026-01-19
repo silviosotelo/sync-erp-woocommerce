@@ -15,13 +15,25 @@ class SyncService {
 
     this.erpPool = mysql.createPool({
       host: erpConfig.host,
+      port: erpConfig.port || 3306,
       user: erpConfig.user,
       password: erpConfig.password,
       database: erpConfig.database,
-      connectionLimit: 5
+      connectionLimit: 3,
+      waitForConnections: true,
+      queueLimit: 0,
+      connectTimeout: 60000,
+      acquireTimeout: 60000,
+      timeout: 60000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0
     });
 
     this.erpQuery = util.promisify(this.erpPool.query).bind(this.erpPool);
+
+    this.erpPool.on('error', (err) => {
+      this.logger.error('Error en pool ERP:', err);
+    });
   }
 
   async startSync() {
