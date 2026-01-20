@@ -55,28 +55,60 @@ console.log('\n' + '='.repeat(60));
 console.log('  FARMATOTAL SYNC v2.0 - SISTEMA MEJORADO');
 console.log('='.repeat(60) + '\n');
 
+console.log('🔄 Cargando Logger...');
 Logger.info('Inicializando Farmatotal Sync v2...');
+console.log('✅ Logger inicializado');
 Logger.info('Si ves errores de timeout, lee: IMPORTANTE-LEER.md');
+console.log('✅ Logs configurados');
 
 let queue, validator, processor, syncService, notifier, reportGenerator, csvExporter;
 let syncController, queueController, statsController, errorsController, reportsController;
 
 async function initializeServices() {
   try {
+    console.log('🔄 Inicializando servicios...');
     Logger.info('Inicializando SQLite queue...');
+    console.log('🔄 Creando SyncQueue...');
     queue = new SyncQueue(SQLITE_DB_PATH);
+    console.log('✅ SyncQueue creado');
     Logger.info('SQLite queue inicializado correctamente');
 
+    console.log('🔄 Creando QueueValidator...');
     validator = new QueueValidator();
+    console.log('✅ QueueValidator creado');
 
+    console.log('🔄 Inicializando MySQL processor...');
     Logger.info('Inicializando MySQL processor...');
     processor = new QueueProcessor(mysqlConfig, queue, Logger);
-    await processor.initialize();
-    Logger.info('MySQL processor inicializado correctamente');
+    console.log('🔄 Probando conexión MySQL (timeout: 15s)...');
 
+    try {
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('MySQL connection timeout')), 15000)
+      );
+      await Promise.race([processor.initialize(), timeout]);
+      console.log('✅ MySQL conectado');
+      Logger.info('MySQL processor inicializado correctamente');
+    } catch (error) {
+      console.log('⚠️  MySQL no disponible:', error.message);
+      console.log('⚠️  El servidor continuará en modo SOLO LECTURA');
+      console.log('');
+      console.log('📌 Para habilitar MySQL:');
+      console.log('   1. Agrega tu IP en el panel de hosting:');
+      console.log('      IP: 2600:1900:0:2e03::f01');
+      console.log('   2. Ve a Remote MySQL o Acceso Remoto');
+      console.log('   3. Agrega la IP a la lista blanca');
+      console.log('');
+      Logger.warn('MySQL no disponible - modo solo lectura', { error: error.message });
+      processor = null;
+    }
+
+    console.log('🔄 Creando WhatsAppNotifier...');
     let whatsappClient = null;
     notifier = new WhatsAppNotifier(whatsappClient, Logger);
+    console.log('✅ WhatsAppNotifier creado');
 
+    console.log('🔄 Inicializando SyncService...');
     Logger.info('Inicializando sync service...');
     syncService = new SyncService(
       erpConfig,
@@ -87,8 +119,10 @@ async function initializeServices() {
       Logger,
       io
     );
+    console.log('✅ SyncService creado');
     Logger.info('Sync service inicializado correctamente');
 
+    console.log('🔄 Creando controllers...');
     reportGenerator = new DailyReportGenerator(queue, Logger);
     csvExporter = new CSVExporter(Logger);
 
@@ -97,8 +131,10 @@ async function initializeServices() {
     statsController = new StatsController(queue, Logger);
     errorsController = new ErrorsController(queue, Logger);
     reportsController = new ReportsController(reportGenerator, csvExporter, Logger);
+    console.log('✅ Controllers creados');
 
     Logger.info('Todos los servicios inicializados correctamente');
+    console.log('✅ Todos los servicios inicializados');
   } catch (error) {
     Logger.error('Error inicializando servicios:', error);
     throw error;
@@ -192,7 +228,14 @@ async function startServer() {
 
     Logger.info('Tarea programada: limpieza de completados cada día a las 2 AM');
 
+    console.log('🚀 Iniciando servidor HTTP en puerto', PORT);
     server.listen(PORT, () => {
+      console.log('');
+      console.log('✅ ¡SERVIDOR INICIADO CORRECTAMENTE!');
+      console.log('');
+      console.log(`📊 Dashboard: http://localhost:${PORT}`);
+      console.log(`🔍 Health: http://localhost:${PORT}/health`);
+      console.log('');
       Logger.info(`Servidor iniciado en puerto ${PORT}`);
       Logger.info(`Dashboard disponible en: http://localhost:${PORT}`);
       Logger.info('Sistema de colas con SQLite inicializado');
