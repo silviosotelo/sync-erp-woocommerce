@@ -1,10 +1,11 @@
 const { v4: uuidv4 } = require('uuid');
-const mysql = require('mysql');
-const util = require('util');
+const axios = require('axios');
+const https = require('https');
 
 class SyncService {
   constructor(erpConfig, queue, processor, validator, notifier, logger, io) {
-    this.erpConfig = erpConfig;
+    this.erpEndpoint = erpConfig.endpoint || process.env.ERP_ENDPOINT;
+    this.erpTimeout = parseInt(process.env.ERP_TIMEOUT) || 30000;
     this.queue = queue;
     this.processor = processor;
     this.validator = validator;
@@ -13,27 +14,10 @@ class SyncService {
     this.io = io;
     this.isRunning = false;
 
-    this.erpPool = mysql.createPool({
-      host: erpConfig.host,
-      port: erpConfig.port || 3306,
-      user: erpConfig.user,
-      password: erpConfig.password,
-      database: erpConfig.database,
-      connectionLimit: 3,
-      waitForConnections: true,
-      queueLimit: 0,
-      connectTimeout: 60000,
-      acquireTimeout: 60000,
-      timeout: 60000,
-      enableKeepAlive: true,
-      keepAliveInitialDelay: 0
-    });
-
-    this.erpQuery = util.promisify(this.erpPool.query).bind(this.erpPool);
-
-    this.erpPool.on('error', (err) => {
-      this.logger.error('Error en pool ERP:', err);
-    });
+    this.axiosConfig = {
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      timeout: this.erpTimeout
+    };
   }
 
   async startSync() {
@@ -167,24 +151,81 @@ class SyncService {
   }
 
   async fetchProductsFromERP() {
-    const query = `
-      SELECT
-        art_cod_int,
-        art_nombre,
-        art_nombre_web,
-        art_descripcion,
-        art_descripcion_larga,
-        art_precio,
-        art_precio_oferta,
-        art_stock,
-        art_imagen_url,
-        art_activo
-      FROM productos
-      WHERE art_activo = 'S'
-    `;
+    try {
+      this.logger.info('Descargando productos desde API ERP...');
+      this.logger.info(`Endpoint: ${this.erpEndpoint}producto`);
 
-    const products = await this.erpQuery(query);
-    return products;
+      const response = await axios.get(
+        `${this.erpEndpoint}producto`,
+        this.axiosConfig
+      );
+
+      const products = response.data.value || [];
+
+      this.logger.info(`Productos descargados desde API: ${products.length}`);
+
+      return products;
+
+    } catch (error) {
+      this.logger.error('Error descargando productos desde API ERP:', {
+        error: error.message,
+        endpoint: `${this.erpEndpoint}producto`,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      throw new Error(`Error al obtener productos de la API: ${error.message}`);
+    }
+  }
+
+  async fetchStockFromERP(artCodInt) {
+    try {
+      const response = await axios.get(
+        `${this.erpEndpoint}product/list/stock/${artCodInt}`,
+        this.axiosConfig
+      );
+
+      return response.data || [];
+
+    } catch (error) {
+      this.logger.error(`Error descargando stock para producto ${artCodInt}:`, error.message);
+      return [];
+    }
+  }
+
+  async fetchDeletedProductsFromERP() {
+    try {
+      this.logger.info('Descargando productos eliminados desde API ERP...');
+
+      const response = await axios.get(
+        `${this.erpEndpoint}producto/deleted`,
+        this.axiosConfig
+      );
+
+      const deletedProducts = response.data.value || [];
+
+      this.logger.info(`Productos eliminados descargados: ${deletedProducts.length}`);
+
+      return deletedProducts;
+
+    } catch (error) {
+      this.logger.error('Error descargando productos eliminados:', error.message);
+      return [];
+    }
+  }
+
+  async notifyERPProductProcessed(artCodInt) {
+    try {
+      await axios.post(
+        `${this.erpEndpoint}producto`,
+        { id: artCodInt.toString() },
+        this.axiosConfig
+      );
+
+      this.logger.debug(`Notificación enviada al ERP para producto ${artCodInt}`);
+
+    } catch (error) {
+      this.logger.warn(`Error notificando al ERP producto ${artCodInt}:`, error.message);
+    }
   }
 
   async getErrorBreakdown() {

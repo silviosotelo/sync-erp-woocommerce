@@ -46,11 +46,9 @@ const mysqlConfig = {
 };
 
 const erpConfig = {
-  host: process.env.ERP_HOST || process.env.MYSQL_HOST,
-  user: process.env.ERP_USER || process.env.MYSQL_USER,
-  password: process.env.ERP_PASSWORD || process.env.MYSQL_PASSWORD,
-  database: process.env.ERP_DATABASE || 'erp_database',
-  port: process.env.ERP_PORT || 3306
+  endpoint: process.env.ERP_ENDPOINT,
+  timeout: parseInt(process.env.ERP_TIMEOUT) || 30000,
+  retryAttempts: parseInt(process.env.ERP_RETRY_ATTEMPTS) || 3
 };
 
 console.log('\n' + '='.repeat(60));
