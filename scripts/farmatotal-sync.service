@@ -1,0 +1,37 @@
+[Unit]
+Description=Farmatotal Sync ERP - Sincronizador ERP <-> WooCommerce
+Documentation=https://github.com/tu-usuario/sync-erp-woocommerce
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/sync-erp-woocommerce
+Environment="NODE_ENV=production"
+Environment="PATH=/usr/bin:/usr/local/bin"
+EnvironmentFile=/opt/sync-erp-woocommerce/.env
+ExecStart=/usr/bin/node /opt/sync-erp-woocommerce/server.js
+Restart=always
+RestartSec=10s
+StandardOutput=append:/opt/sync-erp-woocommerce/logs/service.log
+StandardError=append:/opt/sync-erp-woocommerce/logs/service-error.log
+
+# Límites de recursos
+LimitNOFILE=65536
+MemoryLimit=2G
+CPUQuota=200%
+
+# Seguridad
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/sync-erp-woocommerce/logs /opt/sync-erp-woocommerce/data /opt/sync-erp-woocommerce/backups /opt/sync-erp-woocommerce/reports
+
+# Reinicio automático en caso de fallo
+StartLimitInterval=200s
+StartLimitBurst=5
+
+[Install]
+WantedBy=multi-user.target

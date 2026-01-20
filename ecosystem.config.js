@@ -1,21 +1,21 @@
 /**
  * ecosystem.config.js
- * Configuración de PM2 para el Sincronizador ERP
+ * Configuración de PM2 para Farmatotal Sync v2.0
  */
 
 module.exports = {
     apps: [{
       // Información básica de la aplicación
-      name: 'sync-erp',
+      name: 'farmatotal-sync',
       script: './server.js',
-      
+
       // Configuración de ejecución
       instances: 1,
       exec_mode: 'fork',
-      
+
       // Configuración de memoria y reinicio
-      max_memory_restart: '1G',
-      restart_delay: 5000,
+      max_memory_restart: '2G',
+      restart_delay: 4000,
       max_restarts: 10,
       min_uptime: '10s',
       
@@ -34,23 +34,23 @@ module.exports = {
       // Variables de entorno
       env: {
         NODE_ENV: 'production',
-        PORT: process.env.PORT || 3001,
+        PORT: 3001,
         TZ: 'America/Asuncion'
       },
-      
+
       env_development: {
         NODE_ENV: 'development',
         PORT: 3001,
         LOG_LEVEL: 'DEBUG'
       },
-      
+
       env_staging: {
         NODE_ENV: 'staging',
         PORT: 3001
       },
-      
+
       // Configuración de logs
-      error_file: './logs/pm2-error.log',
+      error_file: './logs/pm2-errors.log',
       out_file: './logs/pm2-out.log',
       log_file: './logs/pm2-combined.log',
       time: true,
@@ -59,26 +59,35 @@ module.exports = {
       
       // Configuración de reinicio automático
       autorestart: true,
-      
-      // Configuración de cron (opcional)
-      cron_restart: '0 2 * * *', // Reiniciar cada día a las 2 AM
-      
+
+      // Configuración de cron (opcional - descomentado por defecto)
+      // cron_restart: '0 3 * * *', // Reiniciar cada día a las 3 AM
+
       // Configuración adicional
       kill_timeout: 5000,
-      listen_timeout: 8000,
-      
+      listen_timeout: 10000,
+      wait_ready: true,
+
       // Scripts de lifecycle
-      post_update: ['npm install', 'echo "Aplicación actualizada"'],
-      
+      post_update: ['npm install --production', 'echo "Aplicación actualizada"'],
+
       // Configuración de cluster (si se necesita en el futuro)
       instance_var: 'INSTANCE_ID',
-      
+
       // Source map support
       source_map_support: true,
-      
+
       // Configuración de interpretador
       interpreter: 'node',
-      interpreter_args: '--max_old_space_size=1024'
+      interpreter_args: '--max-old-space-size=2048',
+
+      // Health check
+      health_check: {
+        enable: false,
+        interval: 30000,
+        timeout: 5000,
+        max_failures: 3
+      }
     }],
     
     // Configuración de deployment (opcional)
