@@ -1,6 +1,31 @@
 # Sincronizador ERP-WooCommerce v2.0
 
-Sistema de sincronización mejorado con sistema de colas, retry logic inteligente, dashboard avanzado, notificaciones WhatsApp y reportes automáticos.
+Sistema de sincronización profesional con:
+- Sistema de colas SQLite
+- Retry logic inteligente con transacciones
+- Dashboard en tiempo real con gráficos
+- Notificaciones WhatsApp estructuradas
+- Reportes automáticos diarios
+- API REST completa
+
+## Inicio Rápido
+
+```bash
+# 1. Instalar dependencias
+npm install
+
+# 2. Configurar .env
+cp .env.example .env
+# Edita .env con tus credenciales MySQL
+
+# 3. Iniciar servidor
+npm start
+
+# 4. Abrir dashboard
+open http://localhost:3001
+```
+
+---
 
 ## Nuevas Funcionalidades v2.0
 

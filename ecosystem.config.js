@@ -6,8 +6,8 @@
 module.exports = {
     apps: [{
       // Información básica de la aplicación
-      name: 'sync-erp-woocommerce',
-      script: './app.js',
+      name: 'sync-erp',
+      script: './server.js',
       
       // Configuración de ejecución
       instances: 1,
@@ -26,6 +26,8 @@ module.exports = {
         'logs',
         'backups',
         'tmp',
+        'data',
+        'reports',
         '.git'
       ],
       

@@ -2,47 +2,26 @@
   "name": "sync-erp-woocommerce",
   "version": "2.0.0",
   "description": "Sincronizador bidireccional ERP ↔ WooCommerce con dashboard de monitoreo, notificaciones WhatsApp y cron job automático",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node start.js",
-    "start:v2": "node server-v2.js",
-    "dev": "node start.js --dev",
-    "dev:v2": "nodemon server-v2.js",
-    "test": "node test-sync.js",
-    "test:quick": "node test-sync.js --quick",
-    "sync": "node sync-enhanced.js",
-    "sync:once": "node -e \"require('./sync-enhanced').main()\"",
-    "setup": "node setup.js",
-    "setup:whatsapp": "node setup-whatsapp.js",
-    "troubleshoot": "node troubleshoot.js",
-    "diagnose": "node troubleshoot.js",
-    "install-service": "node install-service.js",
-    "uninstall-service": "node uninstall-service.js",
-    "backup": "node scripts/backup.js",
-    "restore": "node scripts/restore.js",
-    "health": "node scripts/health-check.js",
-    "init-db": "node scripts/init-database.js",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
     "logs": "tail -f logs/$(date +%Y-%m-%d).log",
-    "status": "curl -s http://localhost:3001/health | jq .",
-    "cron:status": "curl -s http://localhost:3001/api/cron/status | jq .",
-    "cron:start": "curl -X POST http://localhost:3001/api/cron/start",
-    "cron:stop": "curl -X POST http://localhost:3001/api/cron/stop",
+    "logs:errors": "tail -f logs/errors/$(date +%Y-%m-%d)-errors.log",
+    "status": "curl -s http://localhost:3001/health",
     "dashboard": "open http://localhost:3001",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "clean": "rm -rf logs/* backups/* tmp/* node_modules/.cache",
+    "clean": "rm -rf logs/* backups/* tmp/* data/*.db node_modules/.cache",
+    "clean:db": "rm -rf data/sync_queue.db",
     "reset": "npm run clean && npm install",
     "update": "npm update && npm audit fix",
-    "docker:build": "docker build -t sync-erp-woocommerce .",
-    "docker:run": "docker run -p 3001:3001 sync-erp-woocommerce",
-    "pm2:start": "pm2 start ecosystem.config.js",
-    "pm2:stop": "pm2 stop sync-erp-woocommerce",
-    "pm2:restart": "pm2 restart sync-erp-woocommerce",
-    "pm2:logs": "pm2 logs sync-erp-woocommerce",
-    "pm2:status": "pm2 status",
-    "postinstall": "node -e \"console.log('\\n🎉 Instalación completada!\\n📋 Siguiente paso: npm run setup\\n🚀 Sistema v2: npm run start:v2\\n📱 Para WhatsApp: npm run setup:whatsapp\\n')\"",
-    "prestart": "node -e \"const path = require('path'); const fs = require('fs'); const envPath = path.join(process.cwd(), '.env'); if (!fs.existsSync(envPath)) { console.log('⚠️ Archivo .env no encontrado en:', envPath); console.log('📝 Ejecuta: npm run setup'); process.exit(1); }\"",
-    "prepare": "node -e \"['logs','backups','tmp','modules','data','reports','reports/csv','reports/daily'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
+    "pm2:start": "pm2 start server.js --name sync-erp",
+    "pm2:stop": "pm2 stop sync-erp",
+    "pm2:restart": "pm2 restart sync-erp",
+    "pm2:logs": "pm2 logs sync-erp",
+    "pm2:delete": "pm2 delete sync-erp",
+    "postinstall": "node -e \"console.log('\\n✅ Instalación completada\\n📝 Configura .env (copia de .env.example)\\n🚀 Luego ejecuta: npm start\\n📊 Dashboard: http://localhost:3001\\n')\"",
+    "prestart": "node -e \"const fs = require('fs'); if (!fs.existsSync('.env')) { console.log('\\n⚠️  Archivo .env no encontrado'); console.log('📝 Copia .env.example a .env y configura tus credenciales\\n'); process.exit(1); }\"",
+    "prepare": "node -e \"['logs','logs/errors','backups','tmp','data','reports','reports/csv','reports/daily'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
   },
   "keywords": [
     "woocommerce",
@@ -126,28 +105,16 @@
     "linux"
   ],
   "files": [
-    "app.js",
-    "sync-enhanced.js",
-    "start.js",
-    "setup.js",
-    "setup-whatsapp.js",
-    "troubleshoot.js",
-    "test-sync.js",
-    "api-endpoints.js",
-    "dashboard-server.js",
-    "install-service.js",
-    "install-pm2-service.js",
-    "install-service-native.js",
-    "uninstall-service.js",
-    "uninstall-service-native.js",
-    "ecosystem.config.js",
+    "server.js",
+    "src/",
+    "public/",
     "scripts/",
-    "dashboard/",
-    "modules/",
+    "plugin/",
+    "ecosystem.config.js",
+    ".env.example",
     "README.md",
-    "guia.md",
-    "CONFIGURACION_MODULAR.md",
-    "TROUBLESHOOTING.md"
+    "QUICKSTART.md",
+    "IMPORTANTE-LEER.md"
   ],
   "config": {
     "port": "3001",
@@ -159,23 +126,22 @@
     "url": "https://github.com/sponsors/tu-usuario"
   },
   "directories": {
-    "lib": "./modules",
-    "doc": "./docs",
-    "test": "./tests"
+    "lib": "./src"
   },
   "nodemonConfig": {
     "watch": [
-      "*.js",
-      "modules/",
-      "scripts/"
+      "server.js",
+      "src/"
     ],
     "ignore": [
       "logs/",
       "backups/",
       "tmp/",
+      "data/",
+      "reports/",
       "node_modules/"
     ],
-    "ext": "js,json,env"
+    "ext": "js,json"
   },
   "eslintConfig": {
     "env": {
