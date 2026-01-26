@@ -31,7 +31,7 @@
     "backup": "bash scripts/backup-production.sh",
     "restore": "bash scripts/restore-production.sh",
     "postinstall": "node -e \"console.log('\\n✅ Instalación completada\\n📝 Configura .env (copia de .env.example)\\n🚀 Luego ejecuta: npm start\\n📊 Dashboard: http://localhost:3001\\n')\"",
-    "prestart": "node -e \"const fs = require('fs'); if (!fs.existsSync('.env')) { console.log('\\n⚠️  Archivo .env no encontrado'); console.log('📝 Copia .env.example a .env y configura tus credenciales\\n'); process.exit(1); }\"",
+
     "prepare": "node -e \"['logs','logs/errors','backups','tmp','data','reports','reports/csv','reports/daily'].forEach(d => require('fs').existsSync(d) || require('fs').mkdirSync(d, {recursive: true}))\""
   },
   "keywords": [
