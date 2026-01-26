@@ -17,6 +17,10 @@ class QueueProcessor {
     await this.mysqlConnection.testConnection();
   }
 
+  async testConnection() {
+    return await this.mysqlConnection.testConnection();
+  }
+
   async processWithRetry(queueItem) {
     const { art_cod_int, product_data } = queueItem;
 

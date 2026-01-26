@@ -19,12 +19,14 @@ const QueueController = require('./src/api/controllers/QueueController');
 const StatsController = require('./src/api/controllers/StatsController');
 const ErrorsController = require('./src/api/controllers/ErrorsController');
 const ReportsController = require('./src/api/controllers/ReportsController');
+const SystemController = require('./src/api/controllers/SystemController');
 
 const syncRoutes = require('./src/api/routes/sync.routes');
 const queueRoutes = require('./src/api/routes/queue.routes');
 const statsRoutes = require('./src/api/routes/stats.routes');
 const errorsRoutes = require('./src/api/routes/errors.routes');
 const reportsRoutes = require('./src/api/routes/reports.routes');
+const systemRoutes = require('./src/api/routes/system.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -62,7 +64,7 @@ Logger.info('Si ves errores de timeout, lee: IMPORTANTE-LEER.md');
 console.log('✅ Logs configurados');
 
 let queue, validator, processor, syncService, notifier, reportGenerator, csvExporter;
-let syncController, queueController, statsController, errorsController, reportsController;
+let syncController, queueController, statsController, errorsController, reportsController, systemController;
 
 async function initializeServices() {
   try {
@@ -131,6 +133,7 @@ async function initializeServices() {
     statsController = new StatsController(queue, Logger);
     errorsController = new ErrorsController(queue, Logger);
     reportsController = new ReportsController(reportGenerator, csvExporter, Logger);
+    systemController = new SystemController(syncService, processor, Logger);
     console.log('✅ Controllers creados');
 
     Logger.info('Todos los servicios inicializados correctamente');
@@ -150,6 +153,7 @@ async function startServer() {
     app.use('/api/stats', statsRoutes(statsController));
     app.use('/api/errors', errorsRoutes(errorsController));
     app.use('/api/reports', reportsRoutes(reportsController));
+    app.use('/api/system', systemRoutes(systemController));
 
     app.get('/', (req, res) => {
       res.sendFile(path.join(__dirname, 'public', 'dashboard-v2.html'));
@@ -214,6 +218,50 @@ async function startServer() {
     });
 
     Logger.info('Tarea programada: verificación de cola bloqueada cada 10 minutos');
+
+    // ===== SINCRONIZACIÓN AUTOMÁTICA =====
+    if (process.env.AUTO_SYNC_ENABLED === 'true' && syncService) {
+      const intervalMinutes = parseInt(process.env.SYNC_INTERVAL_MINUTES) || 10;
+      const cronExpression = `*/${intervalMinutes} * * * *`;
+
+      cron.schedule(cronExpression, async () => {
+        try {
+          Logger.info(`Iniciando sincronización automática (cada ${intervalMinutes} minutos)...`);
+
+          const result = await syncService.syncAll();
+
+          Logger.info('Sincronización automática completada', {
+            productos: result.totalProducts,
+            exitosos: result.successCount,
+            fallidos: result.failedCount,
+            duracion: result.duration
+          });
+
+          if (io) {
+            io.emit('sync_completed', {
+              timestamp: new Date().toISOString(),
+              ...result
+            });
+          }
+
+        } catch (error) {
+          Logger.error('Error en sincronización automática:', error);
+
+          if (io) {
+            io.emit('sync_error', {
+              timestamp: new Date().toISOString(),
+              error: error.message
+            });
+          }
+        }
+      });
+
+      Logger.info(`✅ Sincronización automática HABILITADA - cada ${intervalMinutes} minutos`);
+      console.log(`✅ Sincronización automática configurada: cada ${intervalMinutes} minutos`);
+    } else {
+      Logger.warn('Sincronización automática DESHABILITADA (AUTO_SYNC_ENABLED=false o MySQL no disponible)');
+      console.log('⚠️  Sincronización automática DESHABILITADA');
+    }
 
     cron.schedule('0 2 * * *', async () => {
       try {
